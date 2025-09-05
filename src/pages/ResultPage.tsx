@@ -4,7 +4,7 @@ import { CBTIType, UserInfo } from '../types';
 import cbtiData from '../data/cbti.json';
 import html2canvas from 'html2canvas';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
-import LocalTestNotice from '../components/LocalTestNotice';
+
 import { handleSlackIntegration } from '../utils/slackIntegration';
 import { generateArchitecture } from '../utils/architectureGenerator';
 import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
@@ -256,7 +256,6 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
 
   return (
     <div className="result-container">
-      <LocalTestNotice />
       <div id="result-content" className="result-content">
         {/* Top Section */}
         <div className="result-top">
@@ -307,7 +306,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               </button>
             </div>
             <button className="action-button slack-button" onClick={handleSlack} style={{ width: '100%', maxWidth: '400px' }}>
-              슬랙에 공유하기 🚀
+              슬랙으로 이동하기 🚀
             </button>
           </div>
           

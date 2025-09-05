@@ -22,7 +22,11 @@ app.post('/api/bedrock-image', async (req, res) => {
     
     const accessKeyId = await getParameter('/qloud/aws/access-key-id');
     const secretAccessKey = await getParameter('/qloud/aws/secret-access-key');
-    const region = await getParameter('/qloud/aws/region');
+    const region = await getParameter('/qloud/aws/region')
+        
+    // const accessKeyId = await getParameter('/test-test-qloud/aws/access-key-id');
+    // const secretAccessKey = await getParameter('/test-test-qloud/aws/secret-access-key');
+    // const region = await getParameter('/test-test-qloud/aws/region');;
     
     const client = new BedrockRuntimeClient({
       region,
