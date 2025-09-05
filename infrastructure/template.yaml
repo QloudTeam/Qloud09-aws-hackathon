@@ -1,0 +1,166 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: CBTI 웹 서비스 인프라스트럭처
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+
+Resources:
+  # S3 버킷 - 정적 웹사이트 호스팅
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cbti-website-${Environment}-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  # S3 버킷 정책
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket}/*'
+
+  # S3 버킷 - 생성된 이미지 저장
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cbti-images-${Environment}-${AWS::AccountId}'
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+  # CloudFront 배포
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        PriceClass: PriceClass_100
+
+  # API Gateway
+  CBTIApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  # Bedrock 이미지 생성 Lambda 함수
+  BedrockImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'cbti-bedrock-image-${Environment}'
+      CodeUri: ../lambda/bedrock-image/
+      Handler: dist/index.handler
+      Environment:
+        Variables:
+          IMAGES_BUCKET: !Ref ImagesBucket
+      Policies:
+        - BedrockInvokeModelPolicy:
+            ModelId: 'amazon.nova-canvas-v1:0'
+        - S3WritePolicy:
+            BucketName: !Ref ImagesBucket
+      Events:
+        GenerateImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CBTIApi
+            Path: /generate-image
+            Method: post
+
+  # CBTI 계산 Lambda 함수
+  CBTICalculatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'cbti-calculator-${Environment}'
+      CodeUri: ../lambda/cbti-api/
+      Handler: dist/index.handler
+      Events:
+        CalculateCBTI:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CBTIApi
+            Path: /calculate
+            Method: post
+
+  # CloudWatch 로그 그룹
+  BedrockImageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/cbti-bedrock-image-${Environment}'
+      RetentionInDays: 14
+
+  CBTICalculatorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/cbti-calculator-${Environment}'
+      RetentionInDays: 14
+
+Outputs:
+  WebsiteURL:
+    Description: 'CBTI 웹사이트 URL'
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'
+
+  ApiGatewayURL:
+    Description: 'API Gateway URL'
+    Value: !Sub 'https://${CBTIApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiURL'
+
+  WebsiteBucketName:
+    Description: '웹사이트 S3 버킷 이름'
+    Value: !Ref WebsiteBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteBucket'
+
+  ImagesBucketName:
+    Description: '이미지 S3 버킷 이름'
+    Value: !Ref ImagesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-ImagesBucket'

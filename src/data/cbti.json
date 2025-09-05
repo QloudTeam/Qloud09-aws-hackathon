@@ -1,0 +1,132 @@
+{
+  "CBTI_TYPES": {
+    "ASEO": {
+      "name": "클라우드 아키텍트",
+      "character": "체계적인 설계자",
+      "description": "복잡한 시스템을 체계적으로 설계하고 최적화하는 능력이 뛰어납니다",
+      "symbol": "🏗️",
+      "traits": ["A", "S", "E", "O"],
+      "recommendedServices": ["EC2", "VPC", "CloudFormation", "Systems Manager"]
+    },
+    "ASIO": {
+      "name": "보안 전문가",
+      "character": "신중한 수호자",
+      "description": "보안과 안정성을 최우선으로 하며 체계적인 접근을 선호합니다",
+      "symbol": "🛡️",
+      "traits": ["A", "S", "I", "O"],
+      "recommendedServices": ["IAM", "KMS", "GuardDuty", "Security Hub"]
+    },
+    "ANEO": {
+      "name": "혁신 리더",
+      "character": "미래지향적 개척자",
+      "description": "새로운 기술을 빠르게 도입하고 혁신적인 솔루션을 만들어냅니다",
+      "symbol": "🚀",
+      "traits": ["A", "N", "E", "O"],
+      "recommendedServices": ["Lambda", "Bedrock", "SageMaker", "API Gateway"]
+    },
+    "ANIO": {
+      "name": "데이터 사이언티스트",
+      "character": "통찰력 있는 분석가",
+      "description": "데이터에서 패턴을 찾아내고 의미 있는 인사이트를 도출합니다",
+      "symbol": "📊",
+      "traits": ["A", "N", "I", "O"],
+      "recommendedServices": ["Athena", "QuickSight", "Glue", "Redshift"]
+    },
+    "BSEO": {
+      "name": "운영 관리자",
+      "character": "안정적인 운영자",
+      "description": "시스템의 안정적인 운영과 효율적인 관리에 특화되어 있습니다",
+      "symbol": "⚙️",
+      "traits": ["B", "S", "E", "O"],
+      "recommendedServices": ["CloudWatch", "Auto Scaling", "ELB", "RDS"]
+    },
+    "BSIO": {
+      "name": "컴플라이언스 전문가",
+      "character": "규정 준수 관리자",
+      "description": "규정과 정책을 철저히 준수하며 체계적인 관리를 수행합니다",
+      "symbol": "📋",
+      "traits": ["B", "S", "I", "O"],
+      "recommendedServices": ["Config", "CloudTrail", "Organizations", "Control Tower"]
+    },
+    "BNEO": {
+      "name": "DevOps 엔지니어",
+      "character": "민첩한 자동화 전문가",
+      "description": "개발과 운영을 연결하여 효율적인 자동화 파이프라인을 구축합니다",
+      "symbol": "🔄",
+      "traits": ["B", "N", "E", "O"],
+      "recommendedServices": ["CodePipeline", "CodeBuild", "ECS", "EKS"]
+    },
+    "BNIO": {
+      "name": "클라우드 컨설턴트",
+      "character": "전략적 조언자",
+      "description": "비즈니스 요구사항을 기술적 솔루션으로 변환하는 능력이 뛰어납니다",
+      "symbol": "💡",
+      "traits": ["B", "N", "I", "O"],
+      "recommendedServices": ["Well-Architected Tool", "Cost Explorer", "Trusted Advisor", "Support"]
+    },
+    "ASEP": {
+      "name": "풀스택 개발자",
+      "character": "다재다능한 구현자",
+      "description": "프론트엔드부터 백엔드까지 전체 스택을 아우르는 개발 능력을 보유합니다",
+      "symbol": "💻",
+      "traits": ["A", "S", "E", "P"],
+      "recommendedServices": ["Amplify", "AppSync", "DynamoDB", "Cognito"]
+    },
+    "ASIP": {
+      "name": "백엔드 전문가",
+      "character": "견고한 기반 구축자",
+      "description": "안정적이고 확장 가능한 백엔드 시스템 구축에 특화되어 있습니다",
+      "symbol": "🏛️",
+      "traits": ["A", "S", "I", "P"],
+      "recommendedServices": ["RDS", "ElastiCache", "SQS", "SNS"]
+    },
+    "ANEP": {
+      "name": "프론트엔드 혁신가",
+      "character": "사용자 경험 창조자",
+      "description": "혁신적인 사용자 인터페이스와 경험을 창조하는 능력이 뛰어납니다",
+      "symbol": "🎨",
+      "traits": ["A", "N", "E", "P"],
+      "recommendedServices": ["CloudFront", "S3", "Pinpoint", "Connect"]
+    },
+    "ANIP": {
+      "name": "AI/ML 연구자",
+      "character": "지능형 솔루션 개발자",
+      "description": "인공지능과 머신러닝을 활용한 지능형 솔루션을 개발합니다",
+      "symbol": "🤖",
+      "traits": ["A", "N", "I", "P"],
+      "recommendedServices": ["Bedrock", "SageMaker", "Comprehend", "Rekognition"]
+    },
+    "BSEP": {
+      "name": "시스템 통합자",
+      "character": "연결의 전문가",
+      "description": "다양한 시스템과 서비스를 효과적으로 통합하는 능력이 뛰어납니다",
+      "symbol": "🔗",
+      "traits": ["B", "S", "E", "P"],
+      "recommendedServices": ["EventBridge", "Step Functions", "MQ", "AppFlow"]
+    },
+    "BSIP": {
+      "name": "데이터베이스 관리자",
+      "character": "데이터 수호자",
+      "description": "데이터의 무결성과 성능을 보장하며 체계적인 데이터 관리를 수행합니다",
+      "symbol": "🗄️",
+      "traits": ["B", "S", "I", "P"],
+      "recommendedServices": ["RDS", "DynamoDB", "DocumentDB", "Neptune"]
+    },
+    "BNEP": {
+      "name": "클라우드 네이티브 개발자",
+      "character": "미래형 애플리케이션 빌더",
+      "description": "클라우드 네이티브 기술을 활용한 현대적 애플리케이션을 개발합니다",
+      "symbol": "☁️",
+      "traits": ["B", "N", "E", "P"],
+      "recommendedServices": ["Fargate", "Lambda", "API Gateway", "EventBridge"]
+    },
+    "BNIP": {
+      "name": "IoT 솔루션 아키텍트",
+      "character": "연결된 세상의 설계자",
+      "description": "사물인터넷 생태계를 설계하고 구현하는 전문가입니다",
+      "symbol": "🌐",
+      "traits": ["B", "N", "I", "P"],
+      "recommendedServices": ["IoT Core", "IoT Analytics", "Greengrass", "Timestream"]
+    }
+  }
+}

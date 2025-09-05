@@ -1,0 +1,16 @@
+{
+  "name": "cbti-api",
+  "version": "1.0.0",
+  "description": "CBTI 계산 API Lambda 함수",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && zip -r function.zip dist/ node_modules/"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.2.2"
+  }
+}

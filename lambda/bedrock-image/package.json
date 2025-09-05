@@ -1,0 +1,18 @@
+{
+  "name": "cbti-bedrock-image",
+  "version": "1.0.0",
+  "description": "Bedrock Nova Canvas를 이용한 CBTI 이미지 생성 Lambda 함수",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && zip -r function.zip dist/ node_modules/"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.450.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.2.2"
+  }
+}
