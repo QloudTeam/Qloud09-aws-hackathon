@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
-import { TestAnswer } from '../types';
 import questionsData from '../data/questions.json';
 
 /**
  * CBTI 테스트 진행 페이지 컴포넌트
  */
-const TestPage: React.FC = () => {
+const TestPage = () => {
   const navigate = useNavigate();
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<TestAnswer[]>([]);
-  const [selectedOption, setSelectedOption] = useState<string>('');
+  const [answers, setAnswers] = useState([]);
+  const [selectedOption, setSelectedOption] = useState('');
 
   const questions = questionsData.questions;
   const totalQuestions = questions.length;
 
-  const handleOptionSelect = (trait: string) => {
+  const handleOptionSelect = (trait) => {
     setSelectedOption(trait);
   };
 
@@ -24,7 +23,7 @@ const TestPage: React.FC = () => {
     if (!selectedOption) return;
 
     // 현재 답변 저장
-    const newAnswer: TestAnswer = {
+    const newAnswer = {
       questionId: questions[currentQuestion].id,
       selectedTrait: selectedOption
     };

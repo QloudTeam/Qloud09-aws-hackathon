@@ -9,7 +9,7 @@ import './App.css';
 /**
  * 메인 애플리케이션 컴포넌트
  */
-const App: React.FC = () => {
+const App = () => {
   return (
     <Router>
       <div className="App">

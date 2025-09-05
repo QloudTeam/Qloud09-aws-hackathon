@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * 로컬 테스트 안내 컴포넌트
  */
-const LocalTestNotice: React.FC = () => {
+const LocalTestNotice = () => {
   return (
     <div className="local-test-notice">
       <div className="notice-header">

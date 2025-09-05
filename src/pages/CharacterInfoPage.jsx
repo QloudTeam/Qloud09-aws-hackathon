@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserInfo, TestAnswer } from '../types';
 import { calculateCBTIType } from '../utils/cbtiCalculator';
 
 /**
  * 사용자 추가 정보 입력 페이지 컴포넌트
  */
-const CharacterInfoPage: React.FC = () => {
+const CharacterInfoPage = () => {
   const navigate = useNavigate();
-  const [userInfo, setUserInfo] = useState<UserInfo>({
+  const [userInfo, setUserInfo] = useState({
     gender: 'male',
     ageGroup: '20s'
   });
@@ -22,7 +21,7 @@ const CharacterInfoPage: React.FC = () => {
       return;
     }
 
-    const answers: TestAnswer[] = JSON.parse(savedAnswers);
+    const answers = JSON.parse(savedAnswers);
     const cbtiType = calculateCBTIType(answers);
 
     // 사용자 정보 저장
@@ -48,7 +47,7 @@ const CharacterInfoPage: React.FC = () => {
                   name="gender"
                   value="male"
                   checked={userInfo.gender === 'male'}
-                  onChange={(e) => setUserInfo({...userInfo, gender: e.target.value as 'male' | 'female'})}
+                  onChange={(e) => setUserInfo({...userInfo, gender: e.target.value})}
                 />
                 <span>남성</span>
               </label>
@@ -58,7 +57,7 @@ const CharacterInfoPage: React.FC = () => {
                   name="gender"
                   value="female"
                   checked={userInfo.gender === 'female'}
-                  onChange={(e) => setUserInfo({...userInfo, gender: e.target.value as 'male' | 'female'})}
+                  onChange={(e) => setUserInfo({...userInfo, gender: e.target.value})}
                 />
                 <span>여성</span>
               </label>
@@ -75,7 +74,7 @@ const CharacterInfoPage: React.FC = () => {
                     name="ageGroup"
                     value={age}
                     checked={userInfo.ageGroup === age}
-                    onChange={(e) => setUserInfo({...userInfo, ageGroup: e.target.value as any})}
+                    onChange={(e) => setUserInfo({...userInfo, ageGroup: e.target.value})}
                   />
                   <span>{age === '20s' ? '20대' : age === '30s' ? '30대' : age === '40s' ? '40대' : '50대'}</span>
                 </label>

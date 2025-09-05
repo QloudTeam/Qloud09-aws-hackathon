@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CBTIType, UserInfo } from '../types';
 import cbtiData from '../data/cbti.json';
 import html2canvas from 'html2canvas';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
@@ -12,24 +11,24 @@ import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator
 /**
  * CBTI 테스트 결과 페이지 컴포넌트
  */
-const ResultPage: React.FC = () => {
+const ResultPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [cbtiType, setCbtiType] = useState<CBTIType | null>(null);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string>('');
-  const [imageLoading, setImageLoading] = useState<boolean>(false);
+  const [cbtiType, setCbtiType] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState('');
+  const [imageLoading, setImageLoading] = useState(false);
 
   const type = searchParams.get('type');
 
   useEffect(() => {
-    if (!type || !cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES]) {
+    if (!type || !cbtiData.CBTI_TYPES[type]) {
       navigate('/');
       return;
     }
 
     // CBTI 유형 데이터 설정
-    setCbtiType(cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES]);
+    setCbtiType(cbtiData.CBTI_TYPES[type]);
 
     // 사용자 정보 가져오기
     const savedUserInfo = localStorage.getItem('userInfo');
@@ -40,7 +39,7 @@ const ResultPage: React.FC = () => {
     // Bedrock 이미지 생성 (비동기로 처리)
     if (savedUserInfo) {
       const parsedUserInfo = JSON.parse(savedUserInfo);
-      const cbtiTypeData = cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES];
+      const cbtiTypeData = cbtiData.CBTI_TYPES[type];
       
       setTimeout(() => {
         generateBedrockImageWithData(type, parsedUserInfo, cbtiTypeData);
@@ -48,7 +47,7 @@ const ResultPage: React.FC = () => {
     }
   }, [type, navigate]);
 
-  const generateBedrockImageWithData = async (cbtiTypeKey: string, userInfo: UserInfo, cbtiTypeData: CBTIType) => {
+  const generateBedrockImageWithData = async (cbtiTypeKey, userInfo, cbtiTypeData) => {
     try {
       if (!cbtiTypeKey || !cbtiTypeData || !userInfo) return;
       
@@ -85,15 +84,10 @@ const ResultPage: React.FC = () => {
     }
   };
 
-  const generateImageWithBedrock = async (
-    ageGroup: string,
-    gender: string,
-    symbol: string,
-    character: string
-  ): Promise<string | null> => {
+  const generateImageWithBedrock = async (ageGroup, gender, symbol, character) => {
     try {
       // 한국어 symbol을 영어로 번역
-      const symbolTranslation: { [key: string]: string } = {
+      const symbolTranslation = {
         '나침반': 'compass',
         '침대': 'bed',
         '지도': 'map',
@@ -113,7 +107,7 @@ const ResultPage: React.FC = () => {
       };
       
       // 한국어 character를 영어로 번역
-      const characterTranslation: { [key: string]: string } = {
+      const characterTranslation = {
         '호기심': 'curious',
         '평온함': 'calm',
         '사려깊음': 'thoughtful',
@@ -140,7 +134,7 @@ const ResultPage: React.FC = () => {
       const genderPronoun = gender === 'male' ? 'his' : 'her';
       
       // Symbol별 자연스러운 상황 설정
-      const symbolActions: { [key: string]: string } = {
+      const symbolActions = {
         'compass': 'looking at a compass with curiosity, as if planning an adventure',
         'bed': 'sitting peacefully on a comfortable bed, looking relaxed and content',
         'map': 'studying a detailed map spread out, pointing to destinations with thoughtful concentration',

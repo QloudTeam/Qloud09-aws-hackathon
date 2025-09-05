@@ -1,14 +1,9 @@
 import React from 'react';
 
-interface ProgressBarProps {
-  current: number;
-  total: number;
-}
-
 /**
  * 테스트 진행 상황을 표시하는 프로그레스 바 컴포넌트
  */
-const ProgressBar: React.FC<ProgressBarProps> = ({ current, total }) => {
+const ProgressBar = ({ current, total }) => {
   const percentage = (current / total) * 100;
 
   return (

@@ -1,18 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-
 /**
 * 메인 홈페이지 컴포넌트
 */
-const HomePage: React.FC = () => {
+const HomePage = () => {
  const navigate = useNavigate();
-
 
  const handleStartTest = () => {
    navigate('/test');
  };
-
 
  return (
    <div className="home-container">
@@ -107,6 +104,5 @@ const HomePage: React.FC = () => {
    </div>
  );
 };
-
 
 export default HomePage;

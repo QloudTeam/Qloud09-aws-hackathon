@@ -1,14 +1,13 @@
-import { TestAnswer } from '../types';
 import cbtiData from '../data/cbti.json';
 
 /**
  * 테스트 답변을 기반으로 CBTI 유형을 계산하는 함수
- * @param answers 사용자의 테스트 답변 배열
- * @returns 계산된 CBTI 유형 문자열
+ * @param {Array} answers 사용자의 테스트 답변 배열
+ * @returns {string} 계산된 CBTI 유형 문자열
  */
-export const calculateCBTIType = (answers: TestAnswer[]): string => {
+export const calculateCBTIType = (answers) => {
   // 각 trait별 점수 집계
-  const traitCounts: Record<string, number> = {};
+  const traitCounts = {};
   
   answers.forEach(answer => {
     traitCounts[answer.selectedTrait] = (traitCounts[answer.selectedTrait] || 0) + 1;
@@ -22,7 +21,7 @@ export const calculateCBTIType = (answers: TestAnswer[]): string => {
     ['visionary', 'operator']  // 비전형 vs 운영형
   ];
 
-  let resultTraits: string[] = [];
+  let resultTraits = [];
   
   dimensions.forEach(([trait1, trait2]) => {
     const count1 = traitCounts[trait1] || 0;

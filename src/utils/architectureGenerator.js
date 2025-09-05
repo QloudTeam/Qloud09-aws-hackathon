@@ -1,15 +1,7 @@
-import { CBTIType } from '../types';
-
-export interface ArchitectureConfig {
-  services: string[];
-  connections: Array<{ from: string; to: string }>;
-  freeTierOptimized: boolean;
-}
-
 /**
  * CBTI 유형별 프리티어 최적화 아키텍처 매핑
  */
-const ARCHITECTURE_MAPPINGS: Record<string, ArchitectureConfig> = {
+const ARCHITECTURE_MAPPINGS = {
   // 서버리스 중심 유형들
   'ASEV': { // 앱 혁신가
     services: ['API Gateway', 'Lambda', 'DynamoDB', 'S3', 'CloudFront', 'CloudWatch'],
@@ -74,7 +66,7 @@ const ARCHITECTURE_MAPPINGS: Record<string, ArchitectureConfig> = {
 /**
  * CBTI 유형에 따른 아키텍처 설정 생성
  */
-export const generateArchitecture = (cbtiType: string, recommendedServices: string[]): ArchitectureConfig => {
+export const generateArchitecture = (cbtiType, recommendedServices) => {
   // 기본 매핑이 있으면 사용
   if (ARCHITECTURE_MAPPINGS[cbtiType]) {
     return ARCHITECTURE_MAPPINGS[cbtiType];
@@ -82,7 +74,7 @@ export const generateArchitecture = (cbtiType: string, recommendedServices: stri
 
   // 추천 서비스 기반 동적 생성
   const services = [...recommendedServices, 'CloudWatch']; // 모니터링은 기본 포함
-  const connections: Array<{ from: string; to: string }> = [];
+  const connections = [];
 
   // 기본 연결 패턴 생성
   if (services.includes('API Gateway') && services.includes('Lambda')) {

@@ -1,21 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { generateArchitecture, ArchitectureConfig } from '../utils/architectureGenerator';
+import { generateArchitecture } from '../utils/architectureGenerator';
 import { architectureDescriptions } from '../data/architectureDescriptions';
-
-interface ArchitectureDiagramProps {
-  cbtiType: string;
-  recommendedServices: string[];
-}
 
 /**
  * 아키텍처 다이어그램 컴포넌트
  */
-const ArchitectureDiagram: React.FC<ArchitectureDiagramProps> = ({ 
-  cbtiType, 
-  recommendedServices 
-}) => {
-  const [architecture, setArchitecture] = useState<ArchitectureConfig | null>(null);
-  const [diagramUrl, setDiagramUrl] = useState<string>('');
+const ArchitectureDiagram = ({ cbtiType, recommendedServices }) => {
+  const [architecture, setArchitecture] = useState(null);
+  const [diagramUrl, setDiagramUrl] = useState('');
 
   useEffect(() => {
     const arch = generateArchitecture(cbtiType, recommendedServices);
@@ -23,7 +15,7 @@ const ArchitectureDiagram: React.FC<ArchitectureDiagramProps> = ({
     setDiagramUrl(getDiagramUrl(cbtiType));
   }, [cbtiType, recommendedServices]);
 
-  const getDiagramUrl = (type: string): string => {
+  const getDiagramUrl = (type) => {
     return `/${type}-architecture.png`; // public 폴더의 이미지 사용
   };
 
