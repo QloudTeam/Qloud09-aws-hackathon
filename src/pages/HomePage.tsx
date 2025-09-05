@@ -30,6 +30,8 @@ const HomePage: React.FC = () => {
            <h2>🤖 CBTI 소개</h2>
              <p>12문제 시나리오형 설문을 통해 클라우드 성향을 총 16가지 유형으로 분류합니다. </p>
              <p>CBTI 결과를 바탕으로 개인화된 프로필 이미지와 AWS 아키텍처 추천을 제공합니다.</p>
+             <br></br>
+             <p>AWS와 관련해 막히는 부분이 있다면, CBTI Slack 커뮤니티에 합류해 봇과 대화하고 다양한 유형의 회원들과 함께 해결하세요.</p>
          </div>
         
          <div className="info-section">
