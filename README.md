@@ -89,7 +89,7 @@ const generateImagePrompt = (userInfo, symbol, character) => {
 - 즉시 다운로드 가능
 
 ### 3. 맞춤형 AWS 아키텍처 추천
-![아키텍처 다이어그램](public/ACEO-architecture.png)
+![아키텍처 다이어그램](public/ISEV-architecture.png)
 
 각 CBTI 유형별로 **최적화된 AWS 아키텍처**를 제공:
 
