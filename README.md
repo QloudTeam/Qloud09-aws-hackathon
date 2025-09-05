@@ -98,19 +98,19 @@ const generateImagePrompt = (userInfo, symbol, character) => {
 - 실제 구현 가능한 CloudFormation 템플릿
 - 상세한 서비스 설명 및 구성 가이드
 
-**ASEO 유형 예시 (앱 오퍼레이터)**:
+**ISEV 유형 예시 (클라우드 탐험가)**:
 ```yaml
-# 안정적인 웹 애플리케이션 아키텍처
+# 글로벌 확장 가능한 웹 서비스 아키텍처
 Resources:
-  ElasticBeanstalkApplication:
-    Type: AWS::ElasticBeanstalk::Application
-  RDSInstance:
-    Type: AWS::RDS::DBInstance
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  EC2AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      Engine: mysql
-      MultiAZ: true
-  SESConfiguration:
-    Type: AWS::SES::ConfigurationSet
+      MinSize: 2
+      MaxSize: 10
 ```
 
 **추천 서비스 매핑**:
@@ -150,13 +150,13 @@ const downloadResultImage = async () => {
 - 커리어 발전 방향 제시
 - 같은 유형의 유명 클라우드 전문가 소개
 
-**예시 - ASEO (앱 오퍼레이터)**:
+**예시 - ISEV (클라우드 탐험가)**:
 ```
-"제품을 오래 달리게 하는 숨은 드라이버, 현장감 넘치는 오퍼레이터.
-서비스의 심박수를 지켜보며 배포와 운영의 리듬을 고르게 만든다."
+"새로운 구역을 보면 먼저 나침반부터 꺼내는 탐사형 빌더.
+안정된 기반 위에서 빠르게 가설을 세우고, 실패도 수확으로 바꾸는 모험가."
 
-추천 서비스: Elastic Beanstalk, RDS, SES
-심볼: #렌치 | 성격: #헌신
+추천 서비스: CloudFront, ALB, EC2
+심볼: #나침반 | 성격: #호기심
 ```
 
 ## 리소스 배포하기
