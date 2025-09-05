@@ -400,6 +400,28 @@ body {
   box-shadow: 0 8px 25px rgba(0,0,0,0.1);
 }
 
+.image-loading, .image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 400px;
+  height: 400px;
+  border: 2px dashed #e0e0e0;
+  border-radius: 15px;
+  background: #f8f9ff;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.image-loading {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 .result-bottom {
   padding: 3rem;
   display: grid;
