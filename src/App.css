@@ -439,6 +439,110 @@ body {
   background: #e0e0e0;
 }
 
+/* 아키텍처 다이어그램 스타일 */
+.architecture-container {
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.architecture-tabs {
+  display: flex;
+  background: #f8f9ff;
+  border-bottom: 1px solid #e0e7ff;
+}
+
+.tab {
+  flex: 1;
+  padding: 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.tab.active {
+  background: white;
+  color: #667eea;
+  border-bottom: 2px solid #667eea;
+}
+
+.architecture-content {
+  padding: 2rem;
+}
+
+.diagram-header, .code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.download-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.architecture-diagram {
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.services-list {
+  margin-top: 1.5rem;
+}
+
+.services-list h5 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.code-section {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.code-block {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.free-tier-info {
+  background: #f0f8ff;
+  padding: 1.5rem;
+  border-top: 1px solid #e0e7ff;
+}
+
+.free-tier-info h5 {
+  margin-bottom: 1rem;
+  color: #667eea;
+}
+
+.free-tier-info ul {
+  list-style: none;
+  padding: 0;
+}
+
+.free-tier-info li {
+  padding: 0.3rem 0;
+  color: #555;
+}
+
 /* 반응형 디자인 */
 @media (max-width: 768px) {
   .info-sections {

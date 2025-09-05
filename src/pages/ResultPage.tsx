@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CBTIType, UserInfo } from '../types';
 import cbtiData from '../data/cbti.json';
 import html2canvas from 'html2canvas';
+import ArchitectureDiagram from '../components/ArchitectureDiagram';
 
 /**
  * CBTI 테스트 결과 페이지 컴포넌트
@@ -100,16 +101,10 @@ const ResultPage: React.FC = () => {
         <div className="result-bottom">
           <div className="architecture-section">
             <h3>{cbtiType.name}을 위한 추천 아키텍처</h3>
-            <div className="architecture-placeholder">
-              <div className="recommended-services">
-                <h4>추천 AWS 서비스:</h4>
-                <div className="service-tags">
-                  {cbtiType.recommendedServices.map((service, index) => (
-                    <span key={index} className="service-tag">{service}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <ArchitectureDiagram 
+              cbtiType={type || 'ASEV'} 
+              recommendedServices={cbtiType.recommended_services || []}
+            />
           </div>
 
           <div className="action-buttons">
