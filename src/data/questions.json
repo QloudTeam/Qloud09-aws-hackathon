@@ -2,98 +2,98 @@
   "questions": [
     {
       "id": 1,
-      "question": "새로운 클라우드 프로젝트를 시작할 때 어떤 접근 방식을 선호하시나요?",
+      "question": "새로운 프로젝트를 시작할 때 어떤 것부터 하나요?",
       "options": [
-        { "text": "인프라 구조와 네트워크부터 설계한다", "trait": "infra_focused" },
-        { "text": "애플리케이션 요구사항부터 분석한다", "trait": "app_focused" }
+        { "text": "튼튼한 기초와 틀부터 만든다", "trait": "infra_focused" },
+        { "text": "무엇을 만들지 아이디어부터 정한다", "trait": "app_focused" }
       ]
     },
     {
       "id": 2,
-      "question": "시스템 설계 시 가장 중요하게 생각하는 요소는?",
+      "question": "집을 짓는다면 어떤 방식을 선호하나요?",
       "options": [
-        { "text": "관리형 서비스 활용과 운영 편의성", "trait": "service_oriented" },
-        { "text": "세밀한 제어와 커스터마이징 가능성", "trait": "control_focused" }
+        { "text": "전문가에게 맡기고 편리하게 이용한다", "trait": "service_oriented" },
+        { "text": "직접 설계하고 세세하게 조절한다", "trait": "control_focused" }
       ]
     },
     {
       "id": 3,
-      "question": "시스템 확장성에 대한 접근 방식은?",
+      "question": "온라인 게임 서버를 운영한다면 어떤 방식을 선호하나요?",
       "options": [
-        { "text": "빠른 스케일링과 유연한 대응", "trait": "elastic" },
-        { "text": "안정적이고 예측 가능한 성능", "trait": "reliable" }
+        { "text": "플레이어가 많아지면 자동으로 서버를 늘리기", "trait": "elastic" },
+        { "text": "미리 충분한 서버를 준비해서 안정적으로 운영", "trait": "reliable" }
       ]
     },
     {
       "id": 4,
-      "question": "프로젝트에서 선호하는 역할은?",
+      "question": "팀 프로젝트에서 어떤 역할을 좋아하나요?",
       "options": [
-        { "text": "미래 방향성을 제시하고 혁신을 주도", "trait": "visionary" },
-        { "text": "안정적인 운영과 효율적인 관리", "trait": "operator" }
+        { "text": "새로운 아이디어를 제안하고 이끌어가기", "trait": "visionary" },
+        { "text": "계획대로 잘 진행되도록 관리하기", "trait": "operator" }
       ]
     },
     {
       "id": 5,
-      "question": "클라우드 서비스 선택 기준은?",
+      "question": "새로운 도구를 선택할 때 무엇을 중요하게 보나요?",
       "options": [
-        { "text": "네트워크와 보안 인프라 기능", "trait": "infra_focused" },
-        { "text": "개발 생산성과 배포 편의성", "trait": "app_focused" }
+        { "text": "안전하고 튼튼한 기능", "trait": "infra_focused" },
+        { "text": "사용하기 쉽고 편리한 기능", "trait": "app_focused" }
       ]
     },
     {
       "id": 6,
-      "question": "문제 해결 시 접근 방법은?",
+      "question": "문제가 생겼을 때 어떻게 해결하나요?",
       "options": [
-        { "text": "AWS 관리형 서비스로 빠른 해결", "trait": "service_oriented" },
-        { "text": "직접 구현하여 완전한 제어 확보", "trait": "control_focused" }
+        { "text": "전문가의 도움을 받아 빠르게 해결", "trait": "service_oriented" },
+        { "text": "직접 공부해서 완전히 이해하고 해결", "trait": "control_focused" }
       ]
     },
     {
       "id": 7,
-      "question": "성능 최적화에 대한 우선순위는?",
+      "question": "게임이나 앱의 성능을 개선한다면?",
       "options": [
-        { "text": "트래픽 변화에 따른 동적 조정", "trait": "elastic" },
-        { "text": "일관된 성능과 안정성 보장", "trait": "reliable" }
+        { "text": "상황에 따라 자동으로 조절되게 만들기", "trait": "elastic" },
+        { "text": "항상 일정하고 안정적으로 작동하게 만들기", "trait": "reliable" }
       ]
     },
     {
       "id": 8,
-      "question": "팀에서 추구하는 가치는?",
+      "question": "새로운 것을 도입할 때 어떤 접근을 선호하나요?",
       "options": [
-        { "text": "새로운 기술 도입과 실험 문화", "trait": "visionary" },
-        { "text": "검증된 방법론과 운영 안정성", "trait": "operator" }
+        { "text": "새로운 것을 시도하고 실험해보기", "trait": "visionary" },
+        { "text": "검증된 방법으로 안전하게 운영하기", "trait": "operator" }
       ]
     },
     {
       "id": 9,
-      "question": "클라우드 마이그레이션 전략은?",
+      "question": "집을 새로 꾸민다면 어떤 것부터 시작하나요?",
       "options": [
-        { "text": "VPC와 네트워크 설계 중심 접근", "trait": "infra_focused" },
-        { "text": "애플리케이션 현대화 중심 접근", "trait": "app_focused" }
+        { "text": "전기, 인터넷 등 기본 시설부터", "trait": "infra_focused" },
+        { "text": "방 배치, 인테리어, 생활 동선 등의 부분부터", "trait": "app_focused" }
       ]
     },
     {
       "id": 10,
-      "question": "모니터링 시스템 구축 시 우선순위는?",
+      "question": "학습이나 업무를 관리할 때 어떤 방식을 선호하나요?",
       "options": [
-        { "text": "CloudWatch 등 관리형 서비스 활용", "trait": "service_oriented" },
-        { "text": "커스텀 메트릭과 세밀한 제어", "trait": "control_focused" }
+        { "text": "앱이나 도구를 활용해서 간편하게", "trait": "service_oriented" },
+        { "text": "직접 기록하고 세세하게 관리", "trait": "control_focused" }
       ]
     },
     {
       "id": 11,
-      "question": "장애 대응 시 선호하는 방식은?",
+      "question": "갑자기 일이 많아졌을 때 어떻게 대처하나요?",
       "options": [
-        { "text": "Auto Scaling으로 자동 복구", "trait": "elastic" },
-        { "text": "사전 정의된 절차로 안정적 복구", "trait": "reliable" }
+        { "text": "상황에 맞춰 유연하게 자동으로 조절", "trait": "elastic" },
+        { "text": "미리 정한 계획대로 차근차근 처리", "trait": "reliable" }
       ]
     },
     {
       "id": 12,
-      "question": "프로젝트 완료 후 선호하는 활동은?",
+      "question": "프로젝트가 끝난 후 무엇을 하고 싶나요?",
       "options": [
-        { "text": "차세대 아키텍처 연구와 실험", "trait": "visionary" },
-        { "text": "운영 프로세스 개선과 최적화", "trait": "operator" }
+        { "text": "더 새롭고 재미있는 것 연구하기", "trait": "visionary" },
+        { "text": "지금 것을 더 잘 만들고 개선하기", "trait": "operator" }
       ]
     }
   ]
