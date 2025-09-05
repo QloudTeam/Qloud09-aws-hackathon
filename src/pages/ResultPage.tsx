@@ -278,7 +278,6 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
 
   return (
     <div className="result-container">
-      <LocalTestNotice />
       <div id="result-content" className="result-content">
         {/* Top Section */}
         <div className="result-top">
