@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ASRO - 데이터 오퍼레이터: 모니터링 시스템'
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ASRO-Alerts
+      DisplayName: ASRO Monitoring Alerts
+
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ASRO-AlertQueue
+      VisibilityTimeoutSeconds: 60
+
+  S3LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'asro-logs-${AWS::AccountId}'
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 30
+
+  CloudWatchLogGroup:
+    Type: AWS::logs::LogGroup
+    Properties:
+      LogGroupName: /asro/application-logs
+      RetentionInDays: 14
+
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ASRO-HighCPU
+      AlarmDescription: High CPU utilization
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref SNSTopic
+
+  LowDiskSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ASRO-LowDiskSpace
+      AlarmDescription: Low disk space
+      MetricName: DiskSpaceUtilization
+      Namespace: System/Linux
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref SNSTopic
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: ASRO-Monitoring
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["AWS/EC2", "CPUUtilization"],
+                  ["System/Linux", "DiskSpaceUtilization"]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "System Metrics"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  SNSTopicArn:
+    Value: !Ref SNSTopic
+  SQSQueueURL:
+    Value: !Ref SQSQueue
+  DashboardURL:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home#dashboards:name=ASRO-Monitoring'
