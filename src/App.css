@@ -99,12 +99,25 @@ body {
  border-radius: 15px;
  box-shadow: 4px 4px 0px #667eea;
  color: #333;
+ display: flex;
+ flex-direction: column;
+}
+
+.intro-text {
+ display: flex;
+ flex-direction: column;
+ justify-content: center;
+ flex: 1;
+}
+
+.intro-text p {
+ color: #2d3436;
 }
 
 
 .info-section h2 {
  margin-bottom: 1rem;
- font-size: 1.5rem;
+ font-size: 1.7rem;
  color: #667eea;
 }
 
@@ -113,19 +126,22 @@ body {
  display: flex;
  flex-direction: column;
  gap: 1.5rem;
+ align-items: center;
 }
 
 
 .dimension {
  background: #f8f9ff;
  padding: 1rem;
- border-left: 4px solid #667eea;
+ border-radius: 10px;
+ width: 100%;
+ max-width: 400px;
 }
 
 
 .dimension-header {
  display: flex;
- justify-content: space-between;
+ justify-content: center;
  align-items: center;
  margin-bottom: 0.8rem;
 }
@@ -141,17 +157,17 @@ body {
 .dimension-scale {
  display: flex;
  align-items: center;
+ justify-content: center;
  gap: 0.5rem;
  font-weight: bold;
  color: #404456;
 }
 
 
-.scale-line {
- width: 60px;
- height: 2px;
- background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
- border-radius: 1px;
+.scale-arrow {
+ font-size: 1.5rem;
+ color: #667eea;
+ font-weight: bold;
 }
 
 
@@ -177,6 +193,8 @@ body {
  align-items: center;
  text-align: center;
  font-size: 0.85rem;
+ width: 100px;
+ flex-shrink: 0;
 }
 
 .scale-item span:first-child {
@@ -674,112 +692,6 @@ body {
  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.architecture-header {
- background: #f8f9ff;
- padding: 1rem;
- border-bottom: 1px solid #e0e7ff;
- text-align: center;
-}
-
-.architecture-header h4 {
- margin: 0;
- color: #667eea;
- font-size: 1.2rem;
-}
-
-.architecture-description {
- margin: 2rem 0;
- padding: 1.5rem;
- background: #f8f9ff;
- border-radius: 12px;
- border-left: 4px solid #667eea;
-}
-
-.description-section,
-.results-section,
-.usecase-section,
-.benefits-section {
- margin-bottom: 1.5rem;
-}
-
-.description-section h5,
-.results-section h5,
-.usecase-section h5,
-.benefits-section h5 {
- margin-bottom: 0.8rem;
- color: #4a5568;
- font-size: 1rem;
- font-weight: 600;
-}
-
-.description-section p,
-.usecase-section p {
- color: #2d3748;
- line-height: 1.6;
- margin: 0;
-}
-
-.results-section ul,
-.benefits-section ul {
- margin: 0;
- padding-left: 1.2rem;
-}
-
-.results-section li,
-.benefits-section li {
- color: #2d3748;
- margin-bottom: 0.5rem;
- line-height: 1.5;
-}
-
-.well-architected-section {
- margin-bottom: 1.5rem;
-}
-
-.well-architected-section h5 {
- margin-bottom: 1rem;
- color: #4a5568;
- font-size: 1rem;
- font-weight: 600;
-}
-
-.principles-grid {
- display: grid;
- grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
- gap: 1rem;
-}
-
-.principle-card {
- background: #ffffff;
- border: 1px solid #e2e8f0;
- border-radius: 8px;
- padding: 1rem;
- border-left: 4px solid #667eea;
-}
-
-.principle-header {
- margin-bottom: 0.5rem;
-}
-
-.principle-header strong {
- color: #667eea;
- font-size: 0.9rem;
- display: block;
-}
-
-.principle-desc {
- color: #718096;
- font-size: 0.8rem;
- font-style: italic;
-}
-
-.principle-implementation {
- color: #2d3748;
- font-size: 0.85rem;
- line-height: 1.4;
- margin: 0;
-}
-
 
 .architecture-tabs {
  display: flex;
@@ -840,18 +752,13 @@ body {
 
 
 .services-list {
- margin-top: 2rem;
- padding: 1rem;
- background: #ffffff;
- border-radius: 8px;
- border: 1px solid #e2e8f0;
+ margin-top: 1.5rem;
 }
 
+
 .services-list h5 {
- margin-bottom: 0.8rem;
- color: #4a5568;
- font-size: 0.95rem;
- font-weight: 600;
+ margin-bottom: 0.5rem;
+ color: #333;
 }
 
 

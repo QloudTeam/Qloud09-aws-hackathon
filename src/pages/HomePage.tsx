@@ -19,9 +19,9 @@ const HomePage: React.FC = () => {
      <div className="home-content">
        <div className="hero-section">
          <h1 className="main-title">CBTI</h1>
-         <p className="subtitle">Cloud MBTI - 클라우드 성향 진단</p>
+         <p className="subtitle">Cloud MBTI - 클라우드 성향 진단 ☁️</p>
          <button className="start-button" onClick={handleStartTest}>
-           → 지금 시작하기
+           지금 시작하기
          </button>
        </div>
       
@@ -39,46 +39,42 @@ const HomePage: React.FC = () => {
                <div className="dimension-header">
                  <div className="dimension-scale">
                    <div className="scale-item">
-                     <span>🌐 I</span>
-                     <span>Infra-focused</span>
+                     <span>I</span>
+                     <span>Infra</span>
                    </div>
-                   <div className="scale-line"></div>
+                   <div className="scale-arrow">↔</div>
                    <div className="scale-item">
                      <span>A</span>
-                     <span>App-focused</span>
+                     <span>App</span>
                    </div>
                  </div>
                </div>
                <div className="dimension-desc">
                </div>
-             </div>
             
-             <div className="dimension">
                <div className="dimension-header">
                  <div className="dimension-scale">
                    <div className="scale-item">
-                     <span>⚙️ S</span>
-                     <span>Service-oriented</span>
+                     <span>S</span>
+                     <span>Service</span>
                    </div>
-                   <div className="scale-line"></div>
+                   <div className="scale-arrow">↔</div>
                    <div className="scale-item">
                      <span>C</span>
-                     <span>Control-focused</span>
+                     <span>Control</span>
                    </div>
                  </div>
                </div>
                <div className="dimension-desc">
                </div>
-             </div>
             
-             <div className="dimension">
                <div className="dimension-header">
                  <div className="dimension-scale">
                    <div className="scale-item">
-                     <span>📈 E</span>
+                     <span>E</span>
                      <span>Elastic</span>
                    </div>
-                   <div className="scale-line"></div>
+                   <div className="scale-arrow">↔</div>
                    <div className="scale-item">
                      <span>R</span>
                      <span>Reliable</span>
@@ -87,16 +83,14 @@ const HomePage: React.FC = () => {
                </div>
                <div className="dimension-desc">
                </div>
-             </div>
             
-             <div className="dimension">
                <div className="dimension-header">
                  <div className="dimension-scale">
                    <div className="scale-item">
-                     <span>🚀 V</span>
+                     <span>V</span>
                      <span>Visionary</span>
                    </div>
-                   <div className="scale-line"></div>
+                   <div className="scale-arrow">↔</div>
                    <div className="scale-item">
                      <span>O</span>
                      <span>Operator</span>
