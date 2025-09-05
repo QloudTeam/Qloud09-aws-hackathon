@@ -590,7 +590,7 @@ body {
 
 .result-bottom {
  padding: 3rem;
- display: grid;
+ /* display: grid; */
  grid-template-columns: 1fr 300px;
  gap: 3rem;
  align-items: start;
@@ -655,7 +655,6 @@ body {
 .slack-button {
  background: #4A154B;
  color: white;
- margin-bottom: 1rem;
 }
 
 
@@ -976,4 +975,22 @@ body {
   .radio-option {
    min-width: auto;
  }
+  
+  .desktop-buttons {
+    display: none !important;
+  }
+  
+  .mobile-buttons {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .desktop-buttons {
+    display: flex !important;
+  }
+  
+  .mobile-buttons {
+    display: none !important;
+  }
 }
