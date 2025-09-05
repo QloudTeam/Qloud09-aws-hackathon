@@ -16,27 +16,29 @@ export const calculateCBTIType = (answers: TestAnswer[]): string => {
 
   // 각 차원별로 우세한 trait 결정
   const dimensions = [
-    ['A', 'B'], // 기술 중심 vs 비즈니스 중심
-    ['S', 'N'], // 현실적 vs 직관적
-    ['E', 'I'], // 외향적 vs 내향적
-    ['O', 'P']  // 체계적 vs 유연한
+    ['infra_focused', 'app_focused'], // 인프라 중심 vs 앱 중심
+    ['service_oriented', 'control_focused'], // 서비스 지향 vs 제어 중심
+    ['elastic', 'reliable'], // 탄력적 vs 안정적
+    ['visionary', 'operator']  // 비전형 vs 운영형
   ];
 
-  let resultType = '';
+  let resultTraits: string[] = [];
   
   dimensions.forEach(([trait1, trait2]) => {
     const count1 = traitCounts[trait1] || 0;
     const count2 = traitCounts[trait2] || 0;
     
     // 더 많이 선택된 trait을 결과에 추가
-    resultType += count1 >= count2 ? trait1 : trait2;
+    resultTraits.push(count1 >= count2 ? trait1 : trait2);
   });
 
-  // 계산된 유형이 존재하는지 확인
-  if (cbtiData.CBTI_TYPES[resultType as keyof typeof cbtiData.CBTI_TYPES]) {
-    return resultType;
+  // traits 배열과 일치하는 CBTI 유형 찾기
+  for (const [typeKey, typeData] of Object.entries(cbtiData.CBTI_TYPES)) {
+    if (JSON.stringify(typeData.traits.sort()) === JSON.stringify(resultTraits.sort())) {
+      return typeKey;
+    }
   }
 
   // 기본값 반환 (예외 상황)
-  return 'ASEO';
+  return 'ISEV';
 };
