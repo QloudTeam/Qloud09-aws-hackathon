@@ -5,9 +5,9 @@ import cbtiData from '../data/cbti.json';
 import html2canvas from 'html2canvas';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
 
-import { handleSlackIntegration } from '../utils/slackIntegration';
-import { generateArchitecture } from '../utils/architectureGenerator';
-import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
+//mport { handleSlackIntegration } from '../utils/slackIntegration';
+// import { generateArchitecture } from '../utils/architectureGenerator';
+// import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
 
 /**
  * CBTI 테스트 결과 페이지 컴포넌트
@@ -210,7 +210,9 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
     }
   };
 
-  const handleDownload = async () => {
+  
+  // 페이지 전체를 이미지로 저장
+  const handlePageSave = async () => {
     const element = document.getElementById('result-content');
     if (element) {
       const canvas = await html2canvas(element);
@@ -221,27 +223,42 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
     }
   };
 
-  const handleShare = () => {
-    const url = window.location.origin;
-    navigator.clipboard.writeText(url);
-    alert('링크가 복사되었습니다!');
-  };
-
-  const handleSlack = async () => {
-    if (!cbtiType) return;
+  // CloudFormation YAML 파일 다운로드
+  const handleCodeDownload = () => {
+    if (!cbtiType || !type) return;
     
-    const cbtiResult = {
-      type: type || 'ASEV',
-      name: cbtiType.name,
-      architectureImageUrl: generatedImageUrl,
-      iacCode: generateCloudFormationTemplate(
-        generateArchitecture(type || 'ASEV', cbtiType.recommended_services || []),
-        type || 'ASEV'
-      ),
-      userInfo: userInfo || { gender: 'male', ageGroup: '20s' }
+    // CBTI 유형별 CloudFormation 템플릿 파일 매핑
+    const fileMapping: { [key: string]: string } = {
+      'ASEO': 'ASEO-platform-service.yaml',
+      'ASEV': 'ASEV-serverless-api.yaml', 
+      'ASRO': 'ASRO-monitoring-system.yaml',
+      'ASRV': 'ASRV-architecture-designer.yaml',
+      'ACEO': 'ACEO-delivery-engineer.yaml',
+      'ACEV': 'ACEV-fullstack-pioneer.yaml',
+      'ACRO': 'ACRO-edge-guardian.yaml', 
+      'ACRV': 'ACRV-security-developer.yaml',
+      'ISEO': 'ISEO-enterprise-webapp.yaml',
+      'ISEV': 'ISEV-global-web-service.yaml',
+      'ISRO': 'ISRO-backup-monitoring.yaml',
+      'ISRV': 'ISRV-global-cdn.yaml',
+      'ICEO': 'ICEO-auto-scaling.yaml',
+      'ICEV': 'ICEV-iac-infrastructure.yaml',
+      'ICRO': 'ICRO-governance-infrastructure.yaml',
+      'ICRV': 'ICRV-security-website.yaml'
     };
     
-    await handleSlackIntegration(cbtiResult);
+    const yamlFileName = fileMapping[type] || `${type}-architecture.yaml`;
+    const link = document.createElement('a');
+    link.href = `/cloudformation-templates/${yamlFileName}`;
+    link.download = yamlFileName;
+    link.click();
+  };
+
+  // 슬랙 커뮤니티 가입
+  const handleSlackCommunity = () => {
+    // 슬랙 워크스페이스 초대 링크로 리디렉션
+    const slackInviteUrl = 'https://join.slack.com/t/the-cbti/shared_invite/zt-3cspruxbq-RZK7pumghk6tiR8Cw~BwsA';
+    window.open(slackInviteUrl, '_blank');
   };
 
   const handleRestart = () => {
@@ -293,20 +310,20 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
         {/* Bottom Section */}
         <div style={{ padding: '2rem' }}>
           {/* Desktop Layout */}
-          <div className="desktop-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '400px' }}>
+         <div className="desktop-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
               <button className="action-button" onClick={handleRestart} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
                 다시하기
               </button>
-              <button className="action-button" onClick={handleShare} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
-                공유하기
+              <button className="action-button" onClick={handlePageSave} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
+                페이지 저장
               </button>
-              <button className="action-button" onClick={handleDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
-                다운로드
+              <button className="action-button" onClick={handleCodeDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
+                코드 다운
               </button>
             </div>
-            <button className="action-button slack-button" onClick={handleSlack} style={{ width: '100%', maxWidth: '400px' }}>
-              슬랙으로 이동하기 🚀
+            <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '500px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
+              슬랙 커뮤니티 가입하기 🚀
             </button>
           </div>
           
@@ -315,14 +332,14 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
             <button className="action-button" onClick={handleRestart} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
               다시하기
             </button>
-            <button className="action-button" onClick={handleShare} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
-              공유하기
+            <button className="action-button" onClick={handlePageSave} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              페이지 저장
             </button>
-            <button className="action-button" onClick={handleDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
-              다운로드
+            <button className="action-button" onClick={handleCodeDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              코드 다운
             </button>
-            <button className="action-button slack-button" onClick={handleSlack} style={{ width: '100%', maxWidth: '300px' }}>
-              슬랙에 공유하기 🚀
+            <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '300px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
+              슬랙 커뮤니티 가입하기 🚀
             </button>
           </div>
         </div>
