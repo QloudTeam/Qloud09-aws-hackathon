@@ -4,6 +4,10 @@ import { CBTIType, UserInfo } from '../types';
 import cbtiData from '../data/cbti.json';
 import html2canvas from 'html2canvas';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
+import LocalTestNotice from '../components/LocalTestNotice';
+import { handleSlackIntegration } from '../utils/slackIntegration';
+import { generateArchitecture } from '../utils/architectureGenerator';
+import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
 
 /**
  * CBTI 테스트 결과 페이지 컴포넌트
@@ -59,8 +63,21 @@ const ResultPage: React.FC = () => {
     alert('링크가 복사되었습니다!');
   };
 
-  const handleSlack = () => {
-    window.open('https://slack.com', '_blank');
+  const handleSlack = async () => {
+    if (!cbtiType) return;
+    
+    const cbtiResult = {
+      type: type || 'ASEV',
+      name: cbtiType.name,
+      architectureImageUrl: generatedImageUrl,
+      iacCode: generateCloudFormationTemplate(
+        generateArchitecture(type || 'ASEV', cbtiType.recommended_services || []),
+        type || 'ASEV'
+      ),
+      userInfo: userInfo || { gender: 'male', ageGroup: '20s' }
+    };
+    
+    await handleSlackIntegration(cbtiResult);
   };
 
   const handleRestart = () => {
@@ -75,6 +92,7 @@ const ResultPage: React.FC = () => {
 
   return (
     <div className="result-container">
+      <LocalTestNotice />
       <div id="result-content" className="result-content">
         {/* Top Section */}
         <div className="result-top">
