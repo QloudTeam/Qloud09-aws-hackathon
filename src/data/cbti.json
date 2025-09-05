@@ -5,128 +5,128 @@
       "description": "새로운 구역을 보면 먼저 나침반부터 꺼내는 탐사형 빌더.\n안정된 기반 위에서 빠르게 가설을 세우고, 실패도 수확으로 바꾸는 모험가.",
       "traits": ["infra_focused", "service_oriented", "elastic", "visionary"],
       "recommended_services": ["CloudFront", "Elastic Load Balancing (ALB)", "EC2"],
-      "symbol": "Compass",
-      "character": "Curiosity"
+      "symbol": "#나침반",
+      "character": "#호기심"
     },
     "ISEO": {
       "name": "안정성 마스터",
       "description": "정돈된 절차와 체크리스트로 파도를 잔잔한 물결로 바꾸는 운영 장인.\n문제가 생기기 전에 소음을 줄이고, 생기면 조용히 복구해내는 현실주의자.",
       "traits": ["infra_focused", "service_oriented", "elastic", "operator"],
       "recommended_services": ["EC2", "RDS", "CloudWatch"],
-      "symbol": "Bed",
-      "character": "Calmness"
+      "symbol": "#침대",
+      "character": "#평온함"
     },
     "ISRV": {
       "name": "미래 설계자",
       "description": "오늘의 결정이 내일의 확장을 막지 않도록 미래를 먼저 그리는 전략가.\n지도 한 장으로 지역과 시간을 꿰어 잇는 글로벌 관점의 플래너.",
       "traits": ["infra_focused", "service_oriented", "reliable", "visionary"],
       "recommended_services": ["S3", "Route 53", "CloudFront"],
-      "symbol": "Map",
-      "character": "Thoughtfulness"
+      "symbol": "#지도",
+      "character": "#사려깊음"
     },
     "ISRO": {
       "name": "철통 관리자",
       "description": "만약의 순간을 일상의 연습으로 바꾸는 신뢰 관리자.\n기록을 친구 삼아 흔들림 없는 운영 리듬을 만든다.",
       "traits": ["infra_focused", "service_oriented", "reliable", "operator"],
       "recommended_services": ["CloudWatch", "EC2", "AWS Backup"],
-      "symbol": "Helmets",
-      "character": "Composure"
+      "symbol": "#헬멧",
+      "character": "#침착함"
     },
     "ICEV": {
       "name": "코드 마법사",
       "description": "설계도와 주문(呪文) 사이를 오가며 구조를 구현하는 공학 마술사.\n세밀한 제어와 자동화 감각으로 혼돈을 재사용 가능한 패턴으로 조립한다.",
       "traits": ["infra_focused", "control_focused", "elastic", "visionary"],
       "recommended_services": ["EC2", "VPC", "CloudFormation"],
-      "symbol": "Stars",
-      "character": "Creativity"
+      "symbol": "#별",
+      "character": "#창의성"
     },
     "ICEO": {
       "name": "효율 장인",
       "description": "밀리초와 원(₩)의 균형을 집요하게 맞추는 디테일 장인.\n데이터로 말하고 실험으로 검증해, 과유불급 없는 스케일을 찾아낸다.",
       "traits": ["infra_focused", "control_focused", "elastic", "operator"],
       "recommended_services": ["Elastic Load Balancing (ALB)", "Auto Scaling", "EC2"],
-      "symbol": "Balance Scale",
-      "character": "Balance"
+      "symbol": "#저울",
+      "character": "#균형감"
     },
     "ICRV": {
       "name": "보안 수호자",
       "description": "의심이 많지만 불편하지 않은, 좋은 보안의 집요한 설계자.\n문을 잠그되 흐름을 막지 않는 균형 감각으로 팀의 안전지대를 넓힌다.",
       "traits": ["infra_focused", "control_focused", "reliable", "visionary"],
       "recommended_services": ["S3", "CloudFront", "WAF"],
-      "symbol": "Padlock",
-      "character": "Responsibility"
+      "symbol": "#자물쇠",
+      "character": "#책임감"
     },
     "ICRO": {
       "name": "거버넌스 엔지니어",
       "description": "규칙을 강요하기보다 습관이 되게 만드는 구조 설계자.\n여러 퍼즐 조각 같은 팀과 계정을 맞춰 예측 가능한 문화로 이끈다.",
       "traits": ["infra_focused", "control_focused", "reliable", "operator"],
       "recommended_services": ["Systems Manager", "CloudWatch", "VPC"],
-      "symbol": "Documents",
-      "character": "Orderliness"
+      "symbol": "#문서",
+      "character": "#질서정연함"
     },
     "ASEV": {
       "name": "앱 혁신가",
       "description": "아이디어를 작게 쪼개 바로 굴려보는 실험가형 메이커.\n빠른 피드백 루프로 학습을 가속하고, 재미를 동력으로 앞으로 나아간다.",
       "traits": ["app_focused", "service_oriented", "elastic", "visionary"],
       "recommended_services": ["API Gateway", "Lambda", "DynamoDB"],
-      "symbol": "Rocket",
-      "character": "Optimism"
+      "symbol": "#로켓",
+      "character": "#낙관주의"
     },
     "ASEO": {
       "name": "앱 오퍼레이터",
       "description": "제품을 오래 달리게 하는 숨은 드라이버, 현장감 넘치는 오퍼레이터.\n서비스의 심박수를 지켜보며 배포와 운영의 리듬을 고르게 만든다.",
       "traits": ["app_focused", "service_oriented", "elastic", "operator"],
       "recommended_services": ["Elastic Beanstalk", "RDS", "SES"],
-      "symbol": "Wrench",
-      "character": "Dedication"
+      "symbol": "#렌치",
+      "character": "#헌신"
     },
     "ASRV": {
       "name": "아키텍처 디자이너",
       "description": "복잡한 흐름을 간결한 선으로 정리하는 시스템 작곡가.\n데이터·메시지·상태를 조화롭게 엮어 확장에 강한 구조를 그린다.",
       "traits": ["app_focused", "service_oriented", "reliable", "visionary"],
       "recommended_services": ["RDS", "CloudWatch", "VPC"],
-      "symbol": "Puzzle",
-      "character": "Harmony"
+      "symbol": "#퍼즐",
+      "character": "#조화"
     },
     "ASRO": {
       "name": "데이터 오퍼레이터",
       "description": "경보가 울리기 전 미세한 떨림을 감지하는 감각형 운영자.\n관측·알림·대응을 하나의 루프로 엮어 안정의 습관을 만든다.",
       "traits": ["app_focused", "service_oriented", "reliable", "operator"],
       "recommended_services": ["CloudWatch", "SNS", "SQS"],
-      "symbol": "Graph",
-      "character": "Attentiveness"
+      "symbol": "#그래프",
+      "character": "#세심함"
     },
     "ACEV": {
       "name": "풀스택 개척자",
       "description": "한 손엔 화면, 다른 손엔 서버를 들고 끝까지 잇는 연결자.\n경험을 통째로 다루며, 작은 팀도 큰 임팩트를 내게 만든다.",
       "traits": ["app_focused", "control_focused", "elastic", "visionary"],
       "recommended_services": ["EC2", "S3", "CloudFront"],
-      "symbol": "Key",
-      "character": "Flexibility"
+      "symbol": "#열쇠",
+      "character": "#유연성"
     },
     "ACEO": {
       "name": "딜리버리 엔지니어",
       "description": "릴리스 열차의 시간표를 지키는 배포 지휘자.\n품질 게이트와 실험 문화로 변화의 속도와 안정의 기준을 동시에 잡는다.",
       "traits": ["app_focused", "control_focused", "elastic", "operator"],
       "recommended_services": ["EC2", "RDS", "API Gateway"],
-      "symbol": "Box",
-      "character": "Discipline"
+      "symbol": "#박스",
+      "character": "#규율"
     },
     "ACRV": {
       "name": "보안 개발자",
       "description": "처음부터 안전하게, 나중에도 유연하게를 고집하는 보안 장인.\n락과 키를 코드에 녹여 신뢰를 기능으로 만들어낸다.",
       "traits": ["app_focused", "control_focused", "reliable", "visionary"],
       "recommended_services": ["WAF", "Auto Scaling", "CloudWatch"],
-      "symbol": "Protractor",
-      "character": "Principledness"
+      "symbol": "#각도기",
+      "character": "#원칙주의"
     },
     "ACRO": {
       "name": "엣지 수호자",
       "description": "사용자와 서비스 사이 길목을 지키는 든든한 문지기.\n가장 가까운 경로를 찾아 연결을 빠르고 안전하게 안내한다.",
       "traits": ["app_focused", "control_focused", "reliable", "operator"],
       "recommended_services": ["Cognito", "WAF", "Route 53"],
-      "symbol": "Globe",
-      "character": "Protectiveness"
+      "symbol": "#지구본",
+      "character": "#보호본능"
     }
   }
 }
