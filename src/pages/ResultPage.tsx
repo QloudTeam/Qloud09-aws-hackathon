@@ -177,62 +177,32 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
         symbol: `${cleanSymbol} -> ${symbolEn}`, 
         character: `${cleanCharacter} -> ${characterEn}` 
       });
-      console.log('AWS 자격 증명 확인:', {
-        accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
-        region: import.meta.env.VITE_AWS_REGION
-      });
 
-      // 실제 Bedrock API 호출
-      const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
+      // 백엔드 API 호출
+      console.log('백엔드 API 호출 시작...');
       
-      const client = new BedrockRuntimeClient({
-        region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
-        credentials: {
-          accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || '',
-          secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || ''
-        }
-      });
-
-      const requestPayload = {
-        taskType: 'TEXT_IMAGE',
-        textToImageParams: {
-          text: prompt,
-          negativeText: 'blurry, low quality, distorted, ugly, bad anatomy, extra limbs, deformed'
+      const response = await fetch('/api/bedrock-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        imageGenerationConfig: {
-          numberOfImages: 1,
-          height: 1024,
-          width: 1024,
-          cfgScale: 8.0,
-          seed: Math.floor(Math.random() * 1000000)
-        }
-      };
-
-      console.log('Bedrock API 호출 시작...');
-      
-      const command = new InvokeModelCommand({
-        modelId: 'amazon.nova-canvas-v1:0',
-        body: JSON.stringify(requestPayload),
-        contentType: 'application/json',
-        accept: 'application/json'
+        body: JSON.stringify({ prompt })
       });
 
-      const response = await client.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      const result = await response.json();
       
-      console.log('Bedrock API 응답 수신:', responseBody);
+      console.log('백엔드 API 응답 수신:', result);
       
-      if (responseBody.images && responseBody.images.length > 0) {
-        const imageBase64 = responseBody.images[0];
+      if (result.success && result.image) {
         console.log('이미지 생성 성공!');
-        return `data:image/png;base64,${imageBase64}`;
+        return result.image;
       } else {
-        console.error('이미지 데이터가 없습니다.');
+        console.error('이미지 생성 실패:', result.error);
         return null;
       }
       
     } catch (error) {
-      console.error('Bedrock API 호출 오류:', error);
+      console.error('API 호출 오류:', error);
       
       // 오류 시 플레이스홀더 이미지 반환
       const encodedText = encodeURIComponent(`${symbol.replace('#', '')}+${character.replace('#', '')}`);
@@ -322,6 +292,42 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
         </div>
 
         {/* Bottom Section */}
+        <div style={{ padding: '2rem' }}>
+          {/* Desktop Layout */}
+          <div className="desktop-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '400px' }}>
+              <button className="action-button" onClick={handleRestart} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
+                다시하기
+              </button>
+              <button className="action-button" onClick={handleShare} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
+                공유하기
+              </button>
+              <button className="action-button" onClick={handleDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
+                다운로드
+              </button>
+            </div>
+            <button className="action-button slack-button" onClick={handleSlack} style={{ width: '100%', maxWidth: '400px' }}>
+              슬랙에 공유하기 🚀
+            </button>
+          </div>
+          
+          {/* Mobile Layout */}
+          <div className="mobile-buttons" style={{ display: 'none', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+            <button className="action-button" onClick={handleRestart} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              다시하기
+            </button>
+            <button className="action-button" onClick={handleShare} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              공유하기
+            </button>
+            <button className="action-button" onClick={handleDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              다운로드
+            </button>
+            <button className="action-button slack-button" onClick={handleSlack} style={{ width: '100%', maxWidth: '300px' }}>
+              슬랙에 공유하기 🚀
+            </button>
+          </div>
+        </div>
+
         <div className="result-bottom">
           <div className="architecture-section">
             <h3>{cbtiType.name}을 위한 추천 아키텍처</h3>
@@ -329,23 +335,6 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               cbtiType={type || 'ASEV'} 
               recommendedServices={cbtiType.recommended_services || []}
             />
-          </div>
-
-          <div className="action-buttons">
-            <button className="action-button slack-button" onClick={handleSlack}>
-              슬랙으로 이동
-            </button>
-            <div className="button-group">
-              <button className="action-button" onClick={handleRestart}>
-                다시하기
-              </button>
-              <button className="action-button" onClick={handleDownload}>
-                다운로드
-              </button>
-              <button className="action-button" onClick={handleShare}>
-                링크공유
-              </button>
-            </div>
           </div>
         </div>
       </div>

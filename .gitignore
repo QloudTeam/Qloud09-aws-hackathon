@@ -42,3 +42,7 @@ Thumbs.db
 # 임시 파일
 *.tmp
 *.temp
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
