@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "eb_versions" {
-  bucket = "test-${var.project_name}-${var.environment}-eb-versions-${random_string.suffix.result}"
+  bucket = "${var.project_name}-${var.environment}-eb-versions-${random_string.suffix.result}"
   
   tags = var.tags
 }

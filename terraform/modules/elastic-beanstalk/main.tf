@@ -1,12 +1,12 @@
 resource "aws_elastic_beanstalk_application" "app" {
-  name        = "test-${var.project_name}-${var.environment}"
+  name        = "${var.project_name}-${var.environment}"
   description = "Qloud CBTI Application - ${var.environment}"
   
   tags = var.tags
 }
 
 resource "aws_elastic_beanstalk_environment" "env" {
-  name                = "test-${var.project_name}-${var.environment}"
+  name                = "${var.project_name}-${var.environment}"
   application         = aws_elastic_beanstalk_application.app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.6.4 running Node.js 22"
   tier                = "WebServer"

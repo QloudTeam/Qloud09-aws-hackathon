@@ -1,6 +1,6 @@
 # Elastic Beanstalk Service Role
 resource "aws_iam_role" "eb_service_role" {
-  name = "test-${var.project_name}-${var.environment}-eb-service-role"
+  name = "${var.project_name}-${var.environment}-eb-service-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -25,7 +25,7 @@ resource "aws_iam_role_policy_attachment" "eb_service_role_policy" {
 
 # EC2 Instance Role for Elastic Beanstalk
 resource "aws_iam_role" "eb_ec2_role" {
-  name = "test-${var.project_name}-${var.environment}-eb-ec2-role"
+  name = "${var.project_name}-${var.environment}-eb-ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -56,7 +56,7 @@ resource "aws_iam_role_policy_attachment" "eb_ec2_worker_tier" {
 
 # Custom policy for Parameter Store and Bedrock access
 resource "aws_iam_role_policy" "eb_ec2_custom_policy" {
-  name = "test-${var.project_name}-${var.environment}-eb-ec2-custom-policy"
+  name = "${var.project_name}-${var.environment}-eb-ec2-custom-policy"
   role = aws_iam_role.eb_ec2_role.id
 
   policy = jsonencode({
@@ -69,7 +69,7 @@ resource "aws_iam_role_policy" "eb_ec2_custom_policy" {
           "ssm:GetParameters",
           "ssm:GetParametersByPath"
         ]
-        Resource = "arn:aws:ssm:*:*:parameter/test-${var.project_name}/*"
+        Resource = "arn:aws:ssm:*:*:parameter/${var.project_name}/*"
       },
       {
         Effect = "Allow"
@@ -85,7 +85,7 @@ resource "aws_iam_role_policy" "eb_ec2_custom_policy" {
 
 # Instance Profile
 resource "aws_iam_instance_profile" "eb_ec2_profile" {
-  name = "test-${var.project_name}-${var.environment}-eb-ec2-profile"
+  name = "${var.project_name}-${var.environment}-eb-ec2-profile"
   role = aws_iam_role.eb_ec2_role.name
 
   tags = var.tags
