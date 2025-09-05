@@ -1,15 +1,15 @@
 {
-  "name": "cbti-bedrock-image",
+  "name": "slack-integration",
   "version": "1.0.0",
-  "description": "Bedrock Nova Canvas를 이용한 CBTI 이미지 생성 Lambda 함수",
+  "description": "슬랙 워크스페이스 연동 및 DM 전송 Lambda 함수",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
     "package": "npm run build && zip -r function.zip dist/ node_modules/"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.658.0",
-    "aws-lambda": "^1.0.7"
+    "@slack/web-api": "^7.0.0",
+    "@aws-sdk/client-s3": "^3.450.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.130",
