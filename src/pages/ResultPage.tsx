@@ -80,9 +80,13 @@ const ResultPage: React.FC = () => {
         <div className="result-top">
           <h1>당신의 클라우드 유형은...</h1>
           <div className="type-info">
-            <h2>{cbtiType.character}, {cbtiType.name}</h2>
-            <p>{cbtiType.name} 유형은 {cbtiType.description}.</p>
-            <div className="symbol">#{cbtiType.symbol}</div>
+            <div className="cbti-code">{type}</div>
+            <h2>{cbtiType.name}</h2>
+            <p>{cbtiType.description}</p>
+            <div className="hashtags">
+              <span className="hashtag">{cbtiType.symbol}</span>
+              <span className="hashtag">{cbtiType.character}</span>
+            </div>
           </div>
         </div>
 
