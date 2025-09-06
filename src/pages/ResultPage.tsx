@@ -297,7 +297,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
 
     try {
       // API Gateway + Lambda 호출
-      const response = await fetch('https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/production/slack-message', {
+      const response = await fetch('https://5lvm5i3uf5.execute-api.us-east-1.amazonaws.com/production/events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
