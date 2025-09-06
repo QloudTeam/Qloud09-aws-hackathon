@@ -204,14 +204,30 @@ terraform --version  # Terraform v1.x.x 이상
 **방법 1: 자동 배포 스크립트 (권장)**
 ```bash
 # 프로젝트 클론
-git clone https://github.com/your-username/Qloud09-aws-hackathon.git
+git clone https://github.com/QloudTeam/Qloud09-aws-hackathon.git
 cd Qloud09-aws-hackathon
+
+# 인프라 배포
+./scripts/deploy.sh production
 
 # 의존성 설치
 npm install
 
-# 프로덕션 환경 배포
-bash scripts/deploy.sh production
+# 애플리케이션 빌드
+npm run build
+
+# EB 초기화 및 배포
+eb init
+=> Select a default region: 1
+=> Select an application to use: qloud-terraform
+=> Do you wish to continue with CodeCommit?: n
+
+# EB 배포
+eb deploy
+
+# 정리
+./scripts/destroy.sh production
+
 ```
 
 **방법 2: 수동 배포**

@@ -65,10 +65,12 @@ echo "📋 배포 정보:"
 terraform output
 
 echo ""
-echo "🌐 애플리케이션 URL:"
-terraform output -raw application_url
+echo "📝 다음 단계:"
+echo "1. 종속성을 설치하세요: npm install"
+echo "2. 애플리케이션 코드를 빌드하세요: npm run build"
+echo "3. EB 초기화를 진행하세요: eb init"
+echo "4. EB CLI로 애플리케이션을 배포하세요: eb deploy"
 
 echo ""
-echo "📝 다음 단계:"
-echo "1. 애플리케이션 코드를 빌드하세요: npm run build"
-echo "2. EB CLI로 애플리케이션을 배포하세요: eb deploy"
+echo "🌐 애플리케이션 URL:"
+terraform output -raw application_url

@@ -11,6 +11,11 @@ echo "📋 환경: $ENVIRONMENT"
 
 cd $TERRAFORM_DIR
 
+# 환경 변수로 AWS 자격증명 설정 (더미 값)
+export TF_VAR_aws_access_key_id="dummy-key-for-destroy"
+export TF_VAR_aws_secret_access_key="dummy-secret-for-destroy"
+export TF_VAR_slack_bot_token=""
+
 # 현재 상태 확인
 echo "📊 현재 리소스 상태 확인 중..."
 terraform show
@@ -28,6 +33,14 @@ fi
 
 # Terraform 삭제
 echo "🗑️  리소스 삭제 중..."
-terraform destroy -auto-approve -var-file="environments/${ENVIRONMENT}.tfvars"
-
-echo "✅ 모든 리소스가 정리되었습니다!"
+if terraform destroy -auto-approve -var-file="environments/${ENVIRONMENT}.tfvars"; then
+    echo "✅ 모든 리소스가 정리되었습니다!"
+else
+    echo "❌ 리소스 삭제 중 오류 발생"
+    echo "📝 수동으로 확인이 필요한 리소스들:"
+    echo "   - Parameter Store: /qloud/aws/*"
+    echo "   - Elastic Beanstalk 애플리케이션"
+    echo "   - S3 버킷"
+    echo "   - IAM 역할"
+    exit 1
+fi
