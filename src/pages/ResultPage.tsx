@@ -391,7 +391,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               ) : (
                 <div className="compatibility-content">
                   <div className="best-matches">
-                    <h4>🚀 나와 잘 맞는 CBTI 사용자들</h4>
+                    <h4>🚀 지금 만나요!</h4>
                     <div className="match-cards">
                       {compatibleUsers.bestMatches.length > 0 ? (
                         compatibleUsers.bestMatches.map((user, index) => {
@@ -416,7 +416,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
                   </div>
                   
                   <div className="worst-matches">
-                    <h4>⚠️ 나와 안 맞는 CBTI 사용자들</h4>
+                    <h4>⚠️ 언젠가 만나요!</h4>
                     <div className="match-cards">
                       {compatibleUsers.worstMatches.length > 0 ? (
                         compatibleUsers.worstMatches.map((user, index) => {
