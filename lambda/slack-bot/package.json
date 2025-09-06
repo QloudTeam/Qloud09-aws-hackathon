@@ -1,0 +1,11 @@
+{
+  "name": "cbti-slack-bot",
+  "version": "1.0.0",
+  "description": "CBTI 슬랙 봇 Lambda 함수",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0"
+  }
+}

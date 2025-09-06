@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CBTI Slack Bot Message Lambda Stack'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+Resources:
+  # Lambda Execution Role
+  SlackBotLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SSMAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: 
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/qloud/slack/bot-token'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                  - dynamodb:GetItem
+                Resource: 
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/cbti-users'
+
+  # Slack Bot Message Lambda Function
+  SlackBotMessageFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'cbti-slack-bot-message-${Environment}'
+      Runtime: nodejs20.x
+      Handler: dist/index.handler
+      Role: !GetAtt SlackBotLambdaRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              },
+              body: JSON.stringify({ message: 'Slack Bot Message placeholder' })
+            };
+          };
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          SLACK_CHANNEL_ID: 'C09DP7K4BRQ'
+
+  # Lambda Function URL
+  SlackBotFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !Ref SlackBotMessageFunction
+      AuthType: NONE
+      Cors:
+        AllowCredentials: false
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - POST
+          - GET
+        AllowOrigins:
+          - '*'
+
+  # Lambda Permission for Function URL
+  SlackBotFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SlackBotMessageFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: '*'
+      FunctionUrlAuthType: NONE
+
+  # DynamoDB Table for CBTI Users (Optional)
+  CBTIUsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: cbti-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: cbtiType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: cbtiType-index
+          KeySchema:
+            - AttributeName: cbtiType
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+Outputs:
+  SlackBotFunctionUrl:
+    Description: 'Slack Bot Message Function URL'
+    Value: !GetAtt SlackBotFunctionUrl.FunctionUrl
+    Export:
+      Name: !Sub '${AWS::StackName}-SlackBotUrl'
+
+  DynamoDBTableName:
+    Description: 'DynamoDB Table Name'
+    Value: !Ref CBTIUsersTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TableName'
+
+  LambdaFunctionArn:
+    Description: 'Lambda Function ARN'
+    Value: !GetAtt SlackBotMessageFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'

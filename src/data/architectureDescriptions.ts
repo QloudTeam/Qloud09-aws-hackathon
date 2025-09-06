@@ -191,87 +191,138 @@ export const architectureDescriptions: Record<string, ArchitectureDescription> =
   },
 
   'ICEO': {
-    title: 'Auto Scaling 웹서비스',
-    description: '트래픽 변화에 자동으로 대응하는 효율적인 웹서비스입니다. 비용을 최적화하면서 성능을 보장합니다.',
+    title: '오토 스케일링 시스템',
+    description: '트래픽 변화에 자동으로 대응하는 지능형 확장 시스템입니다. CPU 사용률과 요청 수를 모니터링하여 최적의 인스턴스 수를 유지합니다.',
     expectedResults: [
-      '트래픽 증가 시 자동 서버 확장',
-      '비용 30-50% 절약 (필요시에만 리소스 사용)',
-      '평균 응답 시간 일정 유지',
-      '24/7 무중단 서비스 제공'
+      '트래픽 70% 증가 시 2분 내 자동 확장',
+      '비용 40-60% 절약 (수요 기반 리소스 사용)',
+      'CPU 사용률 50-70% 최적 범위 유지',
+      '스트레스 테스트 도구로 확장 동작 검증 가능'
     ],
-    useCase: '이벤트 사이트, 뉴스 포털, 소셜 미디어 플랫폼',
+    useCase: '이벤트 사이트, 뉴스 포털, 트래픽 변동이 큰 서비스',
     benefits: [
-      '비용 효율적인 리소스 사용',
-      '자동 성능 최적화',
-      '트래픽 급증 대응'
+      '지능형 리소스 관리',
+      '실시간 성능 모니터링',
+      '예측 가능한 확장 동작'
     ],
     wellArchitectedPrinciples: [
       {
         pillar: 'Cost Optimization',
         description: '비용 최적화',
-        implementation: 'Auto Scaling으로 수요에 따른 자동 리소스 조정, CloudWatch 메트릭 기반 스케일링'
+        implementation: 'Target Tracking과 Simple Scaling 정책으로 정밀한 리소스 조정'
       },
       {
         pillar: 'Performance Efficiency',
         description: '성능 효율성',
-        implementation: 'ALB를 통한 트래픽 분산, 실시간 성능 모니터링으로 최적 성능 유지'
+        implementation: 'CloudWatch 커스텀 메트릭으로 실시간 성능 추적 및 최적화'
       },
       {
         pillar: 'Reliability',
         description: '안정성',
-        implementation: 'Multi-AZ 배포로 고가용성 보장, 자동 장애 복구'
+        implementation: 'Multi-AZ Auto Scaling Group으로 고가용성 및 자동 복구'
       }
     ]
   },
 
   'ICRO': {
-    title: '거버넌스 중심 관리형 인프라',
-    description: '엄격한 관리와 규정 준수가 필요한 환경을 위한 아키텍처입니다. 모든 시스템을 중앙에서 통제하고 모니터링합니다.',
+    title: '거버넌스 인프라',
+    description: '엄격한 관리와 규정 준수가 필요한 환경을 위한 종합 거버넌스 시스템입니다. AWS Config, CloudTrail, Systems Manager를 통해 완전한 가시성과 제어를 제공합니다.',
     expectedResults: [
-      '100% 시스템 가시성 확보',
-      '규정 준수 자동 검증',
-      '중앙 집중식 보안 정책 적용',
-      '실시간 컴플라이언스 모니터링'
+      'AWS Config 규칙 100% 자동 모니터링',
+      'CloudTrail로 모든 API 호출 추적',
+      '컴플라이언스 리포트 자동 생성',
+      '보안 이벤트 실시간 알림 (1분 이내)'
     ],
-    useCase: '대기업 IT 인프라, 규제 산업, 정부 시스템',
+    useCase: '대기업 IT 인프라, 금융/의료 규제 산업, 정부 시스템',
     benefits: [
-      '강력한 거버넌스 체계',
-      '규정 준수 자동화',
-      '중앙 집중식 관리'
+      '완전한 감사 추적성',
+      '자동화된 컴플라이언스 검증',
+      '중앙 집중식 정책 관리'
+    ],
+    wellArchitectedPrinciples: [
+      {
+        pillar: 'Security',
+        description: '보안',
+        implementation: 'AWS Config 규칙으로 보안 정책 자동 검증, CloudTrail 감사 로그'
+      },
+      {
+        pillar: 'Operational Excellence',
+        description: '운영 우수성',
+        implementation: 'Systems Manager로 중앙 집중식 관리, Lambda 기반 자동화'
+      },
+      {
+        pillar: 'Reliability',
+        description: '안정성',
+        implementation: 'EventBridge를 통한 안정적인 이벤트 처리 및 알림'
+      }
     ]
   },
 
   'ASEO': {
-    title: 'Elastic Beanstalk 플랫폼 서비스',
-    description: '애플리케이션 배포와 관리를 간소화하는 플랫폼 서비스입니다. 개발자는 코드에만 집중할 수 있습니다.',
+    title: '플랫폼 서비스',
+    description: '관리형 서비스를 활용한 완전한 플랫폼 솔루션입니다. Elastic Beanstalk, RDS, ElastiCache를 조합하여 개발자가 비즈니스 로직에만 집중할 수 있는 환경을 제공합니다.',
     expectedResults: [
-      '애플리케이션 배포 시간 80% 단축',
-      '자동 모니터링 및 알림',
-      '이메일 발송 기능 내장',
-      '원클릭 환경 복제 및 배포'
+      'Elastic Beanstalk으로 배포 시간 90% 단축',
+      'RDS Multi-AZ로 99.95% 데이터베이스 가용성',
+      'ElastiCache로 응답 시간 70% 개선',
+      'API Gateway로 RESTful API 자동 관리'
     ],
-    useCase: '웹 애플리케이션, API 서비스, 프로토타입 개발',
+    useCase: '엔터프라이즈 웹 애플리케이션, API 플랫폼, 데이터 집약적 서비스',
     benefits: [
-      '빠른 개발 및 배포',
-      '인프라 관리 자동화',
-      '개발자 친화적 환경'
+      '완전 관리형 인프라',
+      '자동 확장 및 복구',
+      '개발 생산성 극대화'
+    ],
+    wellArchitectedPrinciples: [
+      {
+        pillar: 'Operational Excellence',
+        description: '운영 우수성',
+        implementation: 'Elastic Beanstalk 자동 배포, CloudWatch 통합 모니터링'
+      },
+      {
+        pillar: 'Performance Efficiency',
+        description: '성능 효율성',
+        implementation: 'ElastiCache 인메모리 캐싱, RDS 읽기 전용 복제본'
+      },
+      {
+        pillar: 'Reliability',
+        description: '안정성',
+        implementation: 'Multi-AZ 배포, 자동 백업 및 복구'
+      }
     ]
   },
 
   'ASRV': {
-    title: 'Well-Architected 설계 애플리케이션',
-    description: 'AWS 모범 사례를 따르는 최적화된 애플리케이션 아키텍처입니다. 성능, 보안, 비용을 모두 고려한 설계입니다.',
+    title: '아키텍처 디자이너',
+    description: 'ECS Fargate 기반 마이크로서비스 아키텍처로 확장 가능하고 유지보수가 용이한 현대적 애플리케이션을 구축합니다. 컴테이너화된 서비스들이 독립적으로 배포되고 확장됩니다.',
     expectedResults: [
-      'AWS 5개 기둥 모범 사례 100% 준수',
-      '성능 최적화로 응답 시간 50% 개선',
-      '분산 추적으로 문제 해결 시간 90% 단축',
-      '캐싱으로 데이터베이스 부하 70% 감소'
+      'ECS Fargate로 서버리스 컴테이너 운영',
+      '마이크로서비스 독립 배포 및 확장',
+      'ALB로 트래픽 지능형 라우팅',
+      'Auto Scaling으로 비용 최적화'
     ],
-    useCase: '미션 크리티컬 애플리케이션, 대규모 서비스',
+    useCase: '마이크로서비스 아키텍처, 컴테이너 기반 애플리케이션, 클라우드 네이티브 서비스',
     benefits: [
-      'AWS 모범 사례 적용',
-      '최적화된 성능과 비용',
-      '운영 효율성 극대화'
+      '서비스 독립성 보장',
+      '확장성과 유연성',
+      '운영 복잡성 최소화'
+    ],
+    wellArchitectedPrinciples: [
+      {
+        pillar: 'Operational Excellence',
+        description: '운영 우수성',
+        implementation: 'ECS 서비스 자동 배포, CloudWatch 컴테이너 인사이트'
+      },
+      {
+        pillar: 'Performance Efficiency',
+        description: '성능 효율성',
+        implementation: 'Fargate 서버리스 컴퓨팅, Application Auto Scaling'
+      },
+      {
+        pillar: 'Cost Optimization',
+        description: '비용 최적화',
+        implementation: 'Fargate Spot 인스턴스, 리소스 기반 과금'
+      }
     ]
   },
 
@@ -293,19 +344,36 @@ export const architectureDescriptions: Record<string, ArchitectureDescription> =
   },
 
   'ACEO': {
-    title: 'CI/CD 파이프라인 기반 배포',
-    description: '자동화된 빌드, 테스트, 배포 파이프라인을 통해 안전하고 빠른 소프트웨어 배포를 실현합니다.',
+    title: '배송 엔지니어',
+    description: 'CodeCommit, CodeBuild, CodePipeline을 활용한 완전 자동화된 CI/CD 파이프라인입니다. 코드 커밋부터 프로덕션 배포까지 모든 과정이 자동화됩니다.',
     expectedResults: [
-      '배포 시간 95% 단축 (수시간 → 수분)',
-      '배포 오류율 90% 감소',
-      '자동 테스트로 품질 보장',
-      '원클릭 롤백 기능'
+      'Git 푸시 후 5분 내 자동 배포',
+      'CodeBuild로 병렬 빌드 처리',
+      'Elastic Beanstalk 무중단 배포',
+      '배포 실패 시 자동 롤백'
     ],
-    useCase: '애자일 개발, DevOps 환경, 지속적 배포',
+    useCase: '애자일 개발팀, DevOps 환경, 지속적 통합/배포',
     benefits: [
-      '빠르고 안전한 배포',
-      '개발 생산성 향상',
-      '품질 자동 보장'
+      '완전 자동화된 배포',
+      '개발 속도 향상',
+      '배포 위험 최소화'
+    ],
+    wellArchitectedPrinciples: [
+      {
+        pillar: 'Operational Excellence',
+        description: '운영 우수성',
+        implementation: 'CodePipeline 자동화, CloudWatch를 통한 배포 모니터링'
+      },
+      {
+        pillar: 'Reliability',
+        description: '안정성',
+        implementation: 'Elastic Beanstalk 블루/그린 배포, 자동 롤백 메커니즘'
+      },
+      {
+        pillar: 'Security',
+        description: '보안',
+        implementation: 'IAM 역할 기반 접근 제어, S3 아티팩트 암호화'
+      }
     ]
   },
 

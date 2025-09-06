@@ -1,10 +1,15 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ISRO - 철통 관리자: CloudWatch + EC2 + AWS Backup 시스템'
+Description: 'ISRO - 철통 관리자 아키텍처: 백업 및 모니터링 중심 인프라'
 
 Parameters:
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 키페어
+    Description: EC2 인스턴스용 키페어
+  
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
 
 Resources:
   # VPC
@@ -16,10 +21,24 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: ISRO-VPC
+          Value: !Sub '${Environment}-isro-vpc'
 
-  # Public Subnet
-  PublicSubnet:
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-isro-igw'
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Subnets
+  PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
@@ -28,85 +47,107 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: ISRO-Public-Subnet
+          Value: !Sub '${Environment}-isro-public-1'
 
-  # Internet Gateway
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: ISRO-IGW
-
-  AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-isro-public-2'
 
   # Route Table
-  RouteTable:
+  PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: ISRO-RouteTable
+          Value: !Sub '${Environment}-isro-public-rt'
 
-  Route:
+  PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
-      RouteTableId: !Ref RouteTable
+      RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  SubnetRouteTableAssociation:
+  PublicSubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
-      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
 
   # Security Group
-  InstanceSecurityGroup:
+  WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ISRO Instance Security Group
+      GroupDescription: Security group for web servers
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: ISRO-Instance-SG
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
 
-  # IAM Role for Backup
-  BackupRole:
+  # Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${Environment}-isro-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref WebSecurityGroup
+
+  # Target Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Environment}-isro-tg'
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+
+  # Listener
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # IAM Role for EC2
+  EC2Role:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'ISRO-BackupRole-${AWS::StackName}'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: backup.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
-        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores
-
-  # IAM Role for EC2 Instance
-  InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'ISRO-InstanceRole-${AWS::StackName}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -115,161 +156,111 @@ Resources:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: BackupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - backup:*
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: '*'
 
-  InstanceProfile:
+  EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Roles:
-        - !Ref InstanceRole
+        - !Ref EC2Role
 
-  # EC2 Instance
-  EC2Instance:
+  # Launch Template
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${Environment}-isro-template'
+      LaunchTemplateData:
+        ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2
+        InstanceType: t3.micro
+        KeyName: !Ref KeyPairName
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref WebSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>ISRO - 철통 관리자 서버</h1>" > /var/www/html/index.html
+            
+            # CloudWatch Agent 설치
+            yum install -y amazon-cloudwatch-agent
+            
+            # SSM Agent 시작
+            systemctl start amazon-ssm-agent
+            systemctl enable amazon-ssm-agent
+
+  # EC2 Instances
+  EC2Instance1:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-0c02fb55956c7d316
-      InstanceType: t3.micro
-      KeyName: !Ref KeyPairName
-      SubnetId: !Ref PublicSubnet
-      SecurityGroupIds:
-        - !Ref InstanceSecurityGroup
-      IamInstanceProfile: !Ref InstanceProfile
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum update -y
-          yum install -y amazon-cloudwatch-agent amazon-ssm-agent httpd
-          
-          # CloudWatch Agent 설정
-          cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
-          {
-            "metrics": {
-              "namespace": "ISRO/System",
-              "metrics_collected": {
-                "cpu": {
-                  "measurement": [
-                    "cpu_usage_idle",
-                    "cpu_usage_iowait",
-                    "cpu_usage_user",
-                    "cpu_usage_system"
-                  ],
-                  "metrics_collection_interval": 60,
-                  "totalcpu": false
-                },
-                "disk": {
-                  "measurement": [
-                    "used_percent"
-                  ],
-                  "metrics_collection_interval": 60,
-                  "resources": [
-                    "*"
-                  ]
-                },
-                "diskio": {
-                  "measurement": [
-                    "io_time"
-                  ],
-                  "metrics_collection_interval": 60,
-                  "resources": [
-                    "*"
-                  ]
-                },
-                "mem": {
-                  "measurement": [
-                    "mem_used_percent"
-                  ],
-                  "metrics_collection_interval": 60
-                },
-                "netstat": {
-                  "measurement": [
-                    "tcp_established",
-                    "tcp_time_wait"
-                  ],
-                  "metrics_collection_interval": 60
-                }
-              }
-            },
-            "logs": {
-              "logs_collected": {
-                "files": {
-                  "collect_list": [
-                    {
-                      "file_path": "/var/log/messages",
-                      "log_group_name": "/isro/system/messages",
-                      "log_stream_name": "{instance_id}"
-                    },
-                    {
-                      "file_path": "/var/log/httpd/access_log",
-                      "log_group_name": "/isro/httpd/access",
-                      "log_stream_name": "{instance_id}"
-                    }
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-          
-          # CloudWatch Agent 시작
-          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-            -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
-          
-          # 웹 서버 시작
-          systemctl start httpd
-          systemctl enable httpd
-          
-          echo "<h1>ISRO - 철통 관리자 시스템</h1>" > /var/www/html/index.html
-          echo "<p>백업 및 모니터링이 활성화된 안전한 시스템</p>" >> /var/www/html/index.html
-          echo "<p>인스턴스 ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)</p>" >> /var/www/html/index.html
-          
-          # SSM Agent 시작
-          systemctl start amazon-ssm-agent
-          systemctl enable amazon-ssm-agent
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
-          Value: ISRO-Instance
-        - Key: BackupTarget
-          Value: "true"
-        - Key: Environment
-          Value: Production
+          Value: !Sub '${Environment}-isro-ec2-1'
 
-  # AWS Backup Vault
+  EC2Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-isro-ec2-2'
+
+  # S3 Bucket for Backups
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-isro-backup-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # Backup Vault
   BackupVault:
     Type: AWS::Backup::BackupVault
     Properties:
-      BackupVaultName: ISRO-BackupVault
+      BackupVaultName: !Sub '${Environment}-isro-vault'
       EncryptionKeyArn: alias/aws/backup
-      Notifications:
-        BackupVaultEvents:
-          - BACKUP_JOB_STARTED
-          - BACKUP_JOB_COMPLETED
-          - BACKUP_JOB_FAILED
-        SNSTopicArn: !Ref BackupNotificationTopic
 
   # Backup Plan
   BackupPlan:
     Type: AWS::Backup::BackupPlan
     Properties:
       BackupPlan:
-        BackupPlanName: ISRO-BackupPlan
+        BackupPlanName: !Sub '${Environment}-isro-backup-plan'
         BackupPlanRule:
-          - RuleName: DailyBackup
+          - RuleName: DailyBackups
             TargetBackupVault: !Ref BackupVault
             ScheduleExpression: cron(0 2 * * ? *)
             StartWindowMinutes: 60
             CompletionWindowMinutes: 120
             Lifecycle:
               DeleteAfterDays: 30
-              MoveToColdStorageAfterDays: 7
-          - RuleName: WeeklyBackup
-            TargetBackupVault: !Ref BackupVault
-            ScheduleExpression: cron(0 3 ? * SUN *)
-            StartWindowMinutes: 60
-            CompletionWindowMinutes: 180
-            Lifecycle:
-              DeleteAfterDays: 90
-              MoveToColdStorageAfterDays: 30
 
   # Backup Selection
   BackupSelection:
@@ -277,35 +268,27 @@ Resources:
     Properties:
       BackupPlanId: !Ref BackupPlan
       BackupSelection:
-        SelectionName: ISRO-BackupSelection
-        IamRoleArn: !GetAtt BackupRole.Arn
+        SelectionName: !Sub '${Environment}-isro-selection'
+        IamRoleArn: !Sub 'arn:aws:iam::${AWS::AccountId}:role/service-role/AWSBackupDefaultServiceRole'
         Resources:
-          - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2Instance}'
-        Conditions:
-          StringEquals:
-            "aws:ResourceTag/BackupTarget": "true"
+          - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2Instance1}'
+          - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2Instance2}'
 
-  # CloudWatch Log Groups
-  SystemLogGroup:
+  # CloudWatch Log Group
+  LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /isro/system/messages
-      RetentionInDays: 30
-
-  HttpdLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /isro/httpd/access
+      LogGroupName: !Sub '/aws/ec2/${Environment}-isro'
       RetentionInDays: 14
 
   # CloudWatch Alarms
-  HighCPUAlarm:
+  CPUAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: ISRO-HighCPU
-      AlarmDescription: CPU utilization is too high
-      MetricName: cpu_usage_active
-      Namespace: ISRO/System
+      AlarmName: !Sub '${Environment}-isro-high-cpu'
+      AlarmDescription: High CPU utilization
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
       Statistic: Average
       Period: 300
       EvaluationPeriods: 2
@@ -313,139 +296,23 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
         - Name: InstanceId
-          Value: !Ref EC2Instance
-      AlarmActions:
-        - !Ref AlertTopic
-
-  HighDiskUsageAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: ISRO-HighDiskUsage
-      AlarmDescription: Disk usage is too high
-      MetricName: disk_used_percent
-      Namespace: ISRO/System
-      Statistic: Average
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 85
-      ComparisonOperator: GreaterThanThreshold
-      Dimensions:
-        - Name: InstanceId
-          Value: !Ref EC2Instance
-        - Name: device
-          Value: /dev/xvda1
-        - Name: fstype
-          Value: xfs
-        - Name: path
-          Value: /
-      AlarmActions:
-        - !Ref AlertTopic
-
-  InstanceStatusAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: ISRO-InstanceStatusCheck
-      AlarmDescription: Instance status check failed
-      MetricName: StatusCheckFailed_Instance
-      Namespace: AWS/EC2
-      Statistic: Maximum
-      Period: 60
-      EvaluationPeriods: 2
-      Threshold: 0
-      ComparisonOperator: GreaterThanThreshold
-      Dimensions:
-        - Name: InstanceId
-          Value: !Ref EC2Instance
-      AlarmActions:
-        - !Ref AlertTopic
-
-  # SNS Topics
-  AlertTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: ISRO-SystemAlerts
-      DisplayName: ISRO System Alerts
-
-  BackupNotificationTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: ISRO-BackupNotifications
-      DisplayName: ISRO Backup Notifications
-
-  # CloudWatch Dashboard
-  MonitoringDashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: ISRO-Monitoring-Dashboard
-      DashboardBody: !Sub |
-        {
-          "widgets": [
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 0,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  [ "ISRO/System", "cpu_usage_active", "InstanceId", "${EC2Instance}" ],
-                  [ ".", "mem_used_percent", ".", "." ],
-                  [ ".", "disk_used_percent", ".", ".", "device", "/dev/xvda1", "fstype", "xfs", "path", "/" ]
-                ],
-                "period": 300,
-                "stat": "Average",
-                "region": "${AWS::Region}",
-                "title": "System Performance"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 6,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  [ "AWS/EC2", "StatusCheckFailed", "InstanceId", "${EC2Instance}" ],
-                  [ ".", "StatusCheckFailed_Instance", ".", "." ],
-                  [ ".", "StatusCheckFailed_System", ".", "." ]
-                ],
-                "period": 300,
-                "stat": "Maximum",
-                "region": "${AWS::Region}",
-                "title": "Instance Health"
-              }
-            }
-          ]
-        }
+          Value: !Ref EC2Instance1
 
 Outputs:
-  InstanceId:
-    Description: EC2 Instance ID
-    Value: !Ref EC2Instance
+  LoadBalancerDNS:
+    Description: Load Balancer DNS Name
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
-      Name: !Sub '${AWS::StackName}-InstanceId'
+      Name: !Sub '${AWS::StackName}-LoadBalancerDNS'
 
-  InstancePublicIP:
-    Description: EC2 Instance Public IP
-    Value: !GetAtt EC2Instance.PublicIp
+  BackupBucket:
+    Description: S3 Backup Bucket
+    Value: !Ref BackupBucket
     Export:
-      Name: !Sub '${AWS::StackName}-PublicIP'
+      Name: !Sub '${AWS::StackName}-BackupBucket'
 
-  BackupVaultName:
-    Description: Backup Vault Name
+  BackupVault:
+    Description: AWS Backup Vault
     Value: !Ref BackupVault
     Export:
       Name: !Sub '${AWS::StackName}-BackupVault'
-
-  DashboardURL:
-    Description: CloudWatch Dashboard URL
-    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home#dashboards:name=ISRO-Monitoring-Dashboard'
-    Export:
-      Name: !Sub '${AWS::StackName}-Dashboard'
-
-  AlertTopicArn:
-    Description: SNS Alert Topic ARN
-    Value: !Ref AlertTopic
-    Export:
-      Name: !Sub '${AWS::StackName}-AlertTopic'

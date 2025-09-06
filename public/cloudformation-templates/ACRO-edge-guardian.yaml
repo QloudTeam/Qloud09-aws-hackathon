@@ -1,163 +1,45 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ACRO - 엣지 수호자: Cognito + WAF + Route 53 엣지 보안 서비스'
+Description: 'ACRO - 엣지 가디언: 애플리케이션 중심의 제어형 안정적 운영자를 위한 엣지 보안 시스템'
 
 Parameters:
-  DomainName:
+  ProjectName:
     Type: String
-    Default: ""
-    Description: 도메인 이름 (선택사항)
+    Default: acro-edge
+    Description: 프로젝트 이름
 
 Resources:
-  # Cognito User Pool
-  UserPool:
-    Type: AWS::Cognito::UserPool
+  # S3 버킷 - 정적 웹사이트
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      UserPoolName: ACRO-UserPool
-      AutoVerifiedAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireUppercase: true
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: true
-      Schema:
-        - Name: email
-          AttributeDataType: String
-          Required: true
-          Mutable: true
-        - Name: name
-          AttributeDataType: String
-          Required: true
-          Mutable: true
-      UserPoolTags:
-        Name: ACRO-UserPool
-        Service: EdgeGuardian
-      AccountRecoverySetting:
-        RecoveryMechanisms:
-          - Name: verified_email
-            Priority: 1
-      AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: false
-      EmailConfiguration:
-        EmailSendingAccount: COGNITO_DEFAULT
-      MfaConfiguration: OPTIONAL
-      EnabledMfas:
-        - SOFTWARE_TOKEN_MFA
+      BucketName: !Sub '${ProjectName}-website-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
 
-  # Cognito User Pool Client
-  UserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
+  # S3 버킷 정책
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
     Properties:
-      UserPoolId: !Ref UserPool
-      ClientName: ACRO-WebClient
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_PASSWORD_AUTH
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-      PreventUserExistenceErrors: ENABLED
-      SupportedIdentityProviders:
-        - COGNITO
-      CallbackURLs:
-        - https://localhost:3000/callback
-        - !If 
-          - HasDomainName
-          - !Sub 'https://${DomainName}/callback'
-          - !Ref AWS::NoValue
-      LogoutURLs:
-        - https://localhost:3000/logout
-        - !If 
-          - HasDomainName
-          - !Sub 'https://${DomainName}/logout'
-          - !Ref AWS::NoValue
-      AllowedOAuthFlows:
-        - code
-        - implicit
-      AllowedOAuthScopes:
-        - email
-        - openid
-        - profile
-      AllowedOAuthFlowsUserPoolClient: true
-
-  # Cognito Identity Pool
-  IdentityPool:
-    Type: AWS::Cognito::IdentityPool
-    Properties:
-      IdentityPoolName: ACRO_IdentityPool
-      AllowUnauthenticatedIdentities: false
-      CognitoIdentityProviders:
-        - ClientId: !Ref UserPoolClient
-          ProviderName: !GetAtt UserPool.ProviderName
-
-  # IAM Roles for Cognito Identity Pool
-  CognitoAuthenticatedRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'ACRO-CognitoAuthenticatedRole-${AWS::StackName}'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
         Statement:
-          - Effect: Allow
-            Principal:
-              Federated: cognito-identity.amazonaws.com
-            Action: sts:AssumeRoleWithWebIdentity
-            Condition:
-              StringEquals:
-                'cognito-identity.amazonaws.com:aud': !Ref IdentityPool
-              'ForAnyValue:StringLike':
-                'cognito-identity.amazonaws.com:amr': authenticated
-      Policies:
-        - PolicyName: CognitoAuthenticatedPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cognito-sync:*
-                  - cognito-identity:*
-                Resource: '*'
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket}/*'
 
-  CognitoUnauthenticatedRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'ACRO-CognitoUnauthenticatedRole-${AWS::StackName}'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Federated: cognito-identity.amazonaws.com
-            Action: sts:AssumeRoleWithWebIdentity
-            Condition:
-              StringEquals:
-                'cognito-identity.amazonaws.com:aud': !Ref IdentityPool
-              'ForAnyValue:StringLike':
-                'cognito-identity.amazonaws.com:amr': unauthenticated
-      Policies:
-        - PolicyName: CognitoUnauthenticatedPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Deny
-                Action: '*'
-                Resource: '*'
-
-  # Identity Pool Role Attachment
-  IdentityPoolRoleAttachment:
-    Type: AWS::Cognito::IdentityPoolRoleAttachment
-    Properties:
-      IdentityPoolId: !Ref IdentityPool
-      Roles:
-        authenticated: !GetAtt CognitoAuthenticatedRole.Arn
-        unauthenticated: !GetAtt CognitoUnauthenticatedRole.Arn
-
-  # WAF Web ACL for CloudFront
+  # WAF Web ACL
   WebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
-      Name: ACRO-EdgeWebACL
+      Name: !Sub '${ProjectName}-waf'
       Scope: CLOUDFRONT
       DefaultAction:
         Allow: {}
@@ -173,7 +55,7 @@ Resources:
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: CommonRuleSet
+            MetricName: CommonRuleSetMetric
         - Name: AWSManagedRulesKnownBadInputsRuleSet
           Priority: 2
           OverrideAction:
@@ -185,7 +67,7 @@ Resources:
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: KnownBadInputs
+            MetricName: KnownBadInputsRuleSetMetric
         - Name: RateLimitRule
           Priority: 3
           Action:
@@ -197,55 +79,17 @@ Resources:
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: RateLimit
-        - Name: GeoBlockRule
-          Priority: 4
-          Action:
-            Block: {}
-          Statement:
-            GeoMatchStatement:
-              CountryCodes:
-                - CN
-                - RU
-                - KP
-          VisibilityConfig:
-            SampledRequestsEnabled: true
-            CloudWatchMetricsEnabled: true
-            MetricName: GeoBlock
+            MetricName: RateLimitRuleMetric
 
-  # S3 Bucket for static content
-  ContentBucket:
-    Type: AWS::S3::Bucket
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      BucketName: !Sub 'acro-edge-content-${AWS::AccountId}'
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: error.html
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
-  # CloudFront Origin Access Identity
-  CloudFrontOAI:
-    Type: AWS::CloudFront::OriginAccessIdentity
-    Properties:
-      OriginAccessIdentityConfig:
-        Comment: ACRO Edge Guardian OAI
-
-  # S3 Bucket Policy
-  ContentBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref ContentBucket
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOAI}'
-            Action: s3:GetObject
-            Resource: !Sub '${ContentBucket}/*'
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   # CloudFront Distribution
   CloudFrontDistribution:
@@ -254,150 +98,39 @@ Resources:
       DistributionConfig:
         Origins:
           - Id: S3Origin
-            DomainName: !GetAtt ContentBucket.RegionalDomainName
+            DomainName: !GetAtt WebsiteBucket.RegionalDomainName
             S3OriginConfig:
-              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOAI}'
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+        Enabled: true
+        DefaultRootObject: index.html
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods: [GET, HEAD, OPTIONS]
-          CachedMethods: [GET, HEAD]
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
           ForwardedValues:
-            QueryString: true
+            QueryString: false
             Cookies:
               Forward: none
-            Headers:
-              - Authorization
-              - CloudFront-Viewer-Country
           Compress: true
-          DefaultTTL: 86400
-          MaxTTL: 31536000
-        Enabled: true
-        Comment: ACRO Edge Guardian Distribution
-        DefaultRootObject: index.html
-        PriceClass: PriceClass_All
-        HttpVersion: http2
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingOptimized
         WebACLId: !GetAtt WebACL.Arn
-        CustomErrorResponses:
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 300
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 300
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
 
-  # Route 53 Hosted Zone (선택사항)
-  Route53HostedZone:
-    Type: AWS::Route53::HostedZone
-    Condition: HasDomainName
-    Properties:
-      Name: !Ref DomainName
-      HostedZoneConfig:
-        Comment: ACRO Edge Guardian Domain
-
-  # Route 53 Record (선택사항)
-  Route53Record:
-    Type: AWS::Route53::RecordSet
-    Condition: HasDomainName
-    Properties:
-      HostedZoneId: !Ref Route53HostedZone
-      Name: !Ref DomainName
-      Type: A
-      AliasTarget:
-        DNSName: !GetAtt CloudFrontDistribution.DomainName
-        HostedZoneId: Z2FDTNDATAQYW2
-
-  # Lambda function for custom authentication
-  AuthLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'ACRO-AuthLambdaRole-${AWS::StackName}'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: CognitoAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cognito-idp:*
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: '*'
-
-  AuthLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: ACRO-EdgeAuthFunction
-      Runtime: python3.9
-      Handler: index.lambda_handler
-      Role: !GetAtt AuthLambdaRole.Arn
-      Code:
-        ZipFile: |
-          import json
-          import boto3
-          import logging
-          
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-          
-          cognito = boto3.client('cognito-idp')
-          
-          def lambda_handler(event, context):
-              logger.info(f"Auth event: {json.dumps(event)}")
-              
-              try:
-                  # CloudFront viewer request 처리
-                  request = event['Records'][0]['cf']['request']
-                  headers = request['headers']
-                  
-                  # Authorization 헤더 확인
-                  auth_header = headers.get('authorization')
-                  if not auth_header:
-                      return {
-                          'status': '401',
-                          'statusDescription': 'Unauthorized',
-                          'body': 'Authentication required'
-                      }
-                  
-                  # JWT 토큰 검증 (간단한 예시)
-                  token = auth_header[0]['value'].replace('Bearer ', '')
-                  
-                  # 실제 구현에서는 JWT 토큰을 검증해야 함
-                  # 여기서는 간단한 예시로 처리
-                  
-                  logger.info("Authentication successful")
-                  return request
-                  
-              except Exception as e:
-                  logger.error(f"Authentication error: {str(e)}")
-                  return {
-                      'status': '403',
-                      'statusDescription': 'Forbidden',
-                      'body': 'Access denied'
-                  }
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPool
-          USER_POOL_CLIENT_ID: !Ref UserPoolClient
-
-  # CloudWatch Alarms
+  # CloudWatch 알람 - 4xx 에러율
   HighErrorRateAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: ACRO-HighErrorRate
-      AlarmDescription: CloudFront error rate is too high
+      AlarmName: !Sub '${ProjectName}-high-4xx-error-rate'
+      AlarmDescription: '4xx 에러율이 높을 때 알림'
       MetricName: 4xxErrorRate
       Namespace: AWS/CloudFront
       Statistic: Average
@@ -409,131 +142,114 @@ Resources:
         - Name: DistributionId
           Value: !Ref CloudFrontDistribution
       AlarmActions:
-        - !Ref AlertTopic
+        - !Ref SNSTopic
 
-  WAFBlockedRequestsAlarm:
+  # CloudWatch 알람 - 오리진 지연시간
+  HighLatencyAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: ACRO-WAF-BlockedRequests
-      AlarmDescription: WAF is blocking many requests
-      MetricName: BlockedRequests
-      Namespace: AWS/WAFV2
-      Statistic: Sum
+      AlarmName: !Sub '${ProjectName}-high-origin-latency'
+      AlarmDescription: '오리진 응답 시간이 높을 때 알림'
+      MetricName: OriginLatency
+      Namespace: AWS/CloudFront
+      Statistic: Average
       Period: 300
       EvaluationPeriods: 2
-      Threshold: 100
+      Threshold: 3000
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
-        - Name: WebACL
-          Value: !Ref WebACL
-        - Name: Region
-          Value: us-east-1  # CloudFront metrics are in us-east-1
+        - Name: DistributionId
+          Value: !Ref CloudFrontDistribution
       AlarmActions:
-        - !Ref AlertTopic
+        - !Ref SNSTopic
 
-  # SNS Topic for alerts
-  AlertTopic:
+  # SNS 토픽
+  SNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: ACRO-EdgeAlerts
-      DisplayName: ACRO Edge Guardian Alerts
+      TopicName: !Sub '${ProjectName}-alerts'
+      DisplayName: 'ACRO 엣지 가디언 알림'
 
-  # CloudWatch Dashboard
-  EdgeDashboard:
-    Type: AWS::CloudWatch::Dashboard
+  # Lambda 함수 - 보안 로그 분석
+  SecurityLogAnalyzer:
+    Type: AWS::Lambda::Function
     Properties:
-      DashboardName: ACRO-Edge-Guardian-Dashboard
-      DashboardBody: !Sub |
-        {
-          "widgets": [
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 0,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  [ "AWS/CloudFront", "Requests", "DistributionId", "${CloudFrontDistribution}" ],
-                  [ ".", "BytesDownloaded", ".", "." ],
-                  [ ".", "4xxErrorRate", ".", "." ],
-                  [ ".", "5xxErrorRate", ".", "." ]
-                ],
-                "period": 300,
-                "stat": "Sum",
-                "region": "us-east-1",
-                "title": "CloudFront Metrics"
+      FunctionName: !Sub '${ProjectName}-security-analyzer'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          
+          def lambda_handler(event, context):
+              # WAF 로그 분석 로직
+              print("보안 로그 분석 시작")
+              
+              # CloudWatch 메트릭 전송
+              cloudwatch = boto3.client('cloudwatch')
+              cloudwatch.put_metric_data(
+                  Namespace='ACRO/Security',
+                  MetricData=[
+                      {
+                          'MetricName': 'SecurityAnalysisCompleted',
+                          'Value': 1,
+                          'Unit': 'Count'
+                      }
+                  ]
+              )
+              
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('보안 분석 완료')
               }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 6,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  [ "AWS/WAFV2", "AllowedRequests", "WebACL", "${WebACL}", "Region", "us-east-1" ],
-                  [ ".", "BlockedRequests", ".", ".", ".", "." ]
-                ],
-                "period": 300,
-                "stat": "Sum",
-                "region": "us-east-1",
-                "title": "WAF Metrics"
-              }
-            }
-          ]
-        }
 
-Conditions:
-  HasDomainName: !Not [!Equals [!Ref DomainName, ""]]
+  # Lambda 실행 역할
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+
+  # EventBridge 규칙 - 정기적 보안 분석
+  SecurityAnalysisSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-security-schedule'
+      Description: '매시간 보안 분석 실행'
+      ScheduleExpression: 'rate(1 hour)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SecurityLogAnalyzer.Arn
+          Id: SecurityAnalyzerTarget
+
+  # Lambda 권한 - EventBridge
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SecurityLogAnalyzer
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SecurityAnalysisSchedule.Arn
 
 Outputs:
-  UserPoolId:
-    Description: Cognito User Pool ID
-    Value: !Ref UserPool
-    Export:
-      Name: !Sub '${AWS::StackName}-UserPoolId'
-
-  UserPoolClientId:
-    Description: Cognito User Pool Client ID
-    Value: !Ref UserPoolClient
-    Export:
-      Name: !Sub '${AWS::StackName}-UserPoolClientId'
-
-  IdentityPoolId:
-    Description: Cognito Identity Pool ID
-    Value: !Ref IdentityPool
-    Export:
-      Name: !Sub '${AWS::StackName}-IdentityPoolId'
-
-  CloudFrontURL:
-    Description: CloudFront Distribution URL
+  WebsiteURL:
+    Description: 'CloudFront 배포 URL'
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
-    Export:
-      Name: !Sub '${AWS::StackName}-CloudFrontURL'
-
-  WebACLArn:
-    Description: WAF Web ACL ARN
-    Value: !GetAtt WebACL.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-WebACL'
-
-  DomainName:
-    Condition: HasDomainName
-    Description: Custom Domain Name
-    Value: !Ref DomainName
-    Export:
-      Name: !Sub '${AWS::StackName}-DomainName'
-
-  DashboardURL:
-    Description: CloudWatch Dashboard URL
-    Value: !Sub 'https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=ACRO-Edge-Guardian-Dashboard'
-    Export:
-      Name: !Sub '${AWS::StackName}-Dashboard'
-
+  
   S3BucketName:
-    Description: Content S3 Bucket Name
-    Value: !Ref ContentBucket
-    Export:
-      Name: !Sub '${AWS::StackName}-ContentBucket'
+    Description: 'S3 버킷 이름'
+    Value: !Ref WebsiteBucket
+  
+  WAFWebACLId:
+    Description: 'WAF Web ACL ID'
+    Value: !Ref WebACL

@@ -1,67 +1,79 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ASEO - 앱 오퍼레이터: Elastic Beanstalk + RDS + SES 플랫폼'
+Description: 'ASEO - 플랫폼 서비스: 애플리케이션 중심의 서비스 지향 탄력적 운영자를 위한 관리형 플랫폼'
 
 Parameters:
-  ApplicationName:
+  ProjectName:
     Type: String
-    Default: ASEO-WebApp
-    Description: Elastic Beanstalk 애플리케이션 이름
+    Default: aseo-platform
+    Description: 프로젝트 이름
 
 Resources:
-  # Elastic Beanstalk Application
+  # Elastic Beanstalk 애플리케이션
   EBApplication:
     Type: AWS::ElasticBeanstalk::Application
     Properties:
-      ApplicationName: !Ref ApplicationName
-      Description: ASEO 앱 오퍼레이터 플랫폼 서비스
+      ApplicationName: !Sub '${ProjectName}-app'
+      Description: 'ASEO 플랫폼 서비스 애플리케이션'
 
-  # Elastic Beanstalk Environment
+  # Elastic Beanstalk 환경
   EBEnvironment:
     Type: AWS::ElasticBeanstalk::Environment
     Properties:
       ApplicationName: !Ref EBApplication
-      EnvironmentName: !Sub '${ApplicationName}-prod'
-      SolutionStackName: "64bit Amazon Linux 2 v5.8.0 running Node.js 18"
+      EnvironmentName: !Sub '${ProjectName}-env'
+      SolutionStackName: '64bit Amazon Linux 2 v5.8.0 running Node.js 18'
       OptionSettings:
-        - Namespace: aws:autoscaling:launchconfiguration
-          OptionName: InstanceType
-          Value: t3.micro
-        - Namespace: aws:elasticbeanstalk:environment
-          OptionName: EnvironmentType
-          Value: LoadBalanced
         - Namespace: aws:autoscaling:asg
           OptionName: MinSize
-          Value: 1
+          Value: '2'
         - Namespace: aws:autoscaling:asg
           OptionName: MaxSize
-          Value: 4
-        - Namespace: aws:elasticbeanstalk:healthreporting:system
-          OptionName: SystemType
-          Value: enhanced
+          Value: '10'
+        - Namespace: aws:ec2:instances
+          OptionName: InstanceTypes
+          Value: t3.small,t3.medium
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: LoadBalancerType
+          Value: application
+        - Namespace: aws:autoscaling:trigger
+          OptionName: MeasureName
+          Value: CPUUtilization
+        - Namespace: aws:autoscaling:trigger
+          OptionName: Unit
+          Value: Percent
+        - Namespace: aws:autoscaling:trigger
+          OptionName: UpperThreshold
+          Value: '70'
+        - Namespace: aws:autoscaling:trigger
+          OptionName: LowerThreshold
+          Value: '20'
 
-  # RDS Database
+  # RDS 서브넷 그룹
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: Subnet group for RDS
+      DBSubnetGroupName: !Sub '${ProjectName}-db-subnet-group'
+      DBSubnetGroupDescription: 'RDS 서브넷 그룹'
       SubnetIds:
-        - subnet-12345678  # 실제 서브넷 ID로 교체 필요
-        - subnet-87654321  # 실제 서브넷 ID로 교체 필요
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
       Tags:
         - Key: Name
-          Value: ASEO-DB-SubnetGroup
+          Value: !Sub '${ProjectName}-db-subnet-group'
 
+  # RDS 인스턴스
   RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: aseo-database
+      DBInstanceIdentifier: !Sub '${ProjectName}-db'
       DBInstanceClass: db.t3.micro
       Engine: mysql
-      EngineVersion: 8.0.35
+      EngineVersion: '8.0'
       MasterUsername: admin
-      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+      MasterUserPassword: !Ref DBPassword
       AllocatedStorage: 20
       StorageType: gp2
+      StorageEncrypted: true
       VPCSecurityGroups:
         - !Ref RDSSecurityGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
@@ -69,147 +81,227 @@ Resources:
       MultiAZ: false
       PubliclyAccessible: false
       DeletionProtection: false
+
+  # ElastiCache 서브넷 그룹
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub '${ProjectName}-cache-subnet-group'
+      Description: 'ElastiCache 서브넷 그룹'
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  # ElastiCache Redis 클러스터
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheClusterId: !Sub '${ProjectName}-redis'
+      Engine: redis
+      CacheNodeType: cache.t3.micro
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+
+  # VPC (기본)
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: ASEO-RDS
+          Value: !Sub '${ProjectName}-vpc'
 
-  # RDS Security Group
+  # 프라이빗 서브넷
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-private-subnet-1'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-private-subnet-2'
+
+  # 보안 그룹 - RDS
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for RDS
-      VpcId: vpc-12345678  # 실제 VPC ID로 교체 필요
+      GroupName: !Sub '${ProjectName}-rds-sg'
+      GroupDescription: 'RDS용 보안 그룹'
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
           SourceSecurityGroupId: !Ref EBSecurityGroup
-      Tags:
-        - Key: Name
-          Value: ASEO-RDS-SG
 
-  # Elastic Beanstalk Security Group
+  # 보안 그룹 - ElastiCache
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ProjectName}-cache-sg'
+      GroupDescription: 'ElastiCache용 보안 그룹'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref EBSecurityGroup
+
+  # 보안 그룹 - Elastic Beanstalk
   EBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for Elastic Beanstalk
-      VpcId: vpc-12345678  # 실제 VPC ID로 교체 필요
+      GroupName: !Sub '${ProjectName}-eb-sg'
+      GroupDescription: 'Elastic Beanstalk용 보안 그룹'
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: ASEO-EB-SG
 
-  # Database Secret
-  DBSecret:
-    Type: AWS::SecretsManager::Secret
+  # API Gateway
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: ASEO-DB-Secret
-      Description: RDS database credentials
-      GenerateSecretString:
-        SecretStringTemplate: '{"username": "admin"}'
-        GenerateStringKey: 'password'
-        PasswordLength: 16
-        ExcludeCharacters: '"@/\'
+      Name: !Sub '${ProjectName}-api'
+      Description: 'ASEO 플랫폼 API Gateway'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
 
-  # SES Email Identity
-  SESEmailIdentity:
-    Type: AWS::SES::EmailIdentity
+  # API Gateway 리소스
+  ApiResource:
+    Type: AWS::ApiGateway::Resource
     Properties:
-      EmailIdentity: noreply@example.com  # 실제 도메인으로 교체 필요
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: 'api'
 
-  # SES Configuration Set
-  SESConfigurationSet:
-    Type: AWS::SES::ConfigurationSet
+  # API Gateway 메서드
+  ApiMethod:
+    Type: AWS::ApiGateway::Method
     Properties:
-      Name: ASEO-ConfigSet
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ApiResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: ANY
+        Uri: !Sub 'http://${EBEnvironment}.${AWS::Region}.elasticbeanstalk.com/api'
 
-  # CloudWatch Log Group
-  LogGroup:
-    Type: AWS::Logs::LogGroup
+  # API Gateway 배포
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ApiMethod
     Properties:
-      LogGroupName: !Sub '/aws/elasticbeanstalk/${ApplicationName}/var/log/eb-engine.log'
-      RetentionInDays: 14
+      RestApiId: !Ref ApiGateway
+      StageName: prod
 
-  # IAM Role for Elastic Beanstalk
-  EBServiceRole:
-    Type: AWS::IAM::Role
+  # CloudWatch 대시보드
+  CloudWatchDashboard:
+    Type: AWS::CloudWatch::Dashboard
     Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: elasticbeanstalk.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth
-        - arn:aws:iam::aws:policy/AWSElasticBeanstalkManagedUpdatesCustomerRolePolicy
-      Policies:
-        - PolicyName: SESAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ses:SendEmail
-                  - ses:SendRawEmail
-                Resource: '*'
+      DashboardName: !Sub '${ProjectName}-dashboard'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ElasticBeanstalk", "ApplicationRequests2xx", "EnvironmentName", "${EBEnvironment}" ],
+                  [ ".", "ApplicationRequests4xx", ".", "." ],
+                  [ ".", "ApplicationRequests5xx", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "애플리케이션 요청"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${RDSInstance}" ],
+                  [ ".", "DatabaseConnections", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "RDS 메트릭"
+              }
+            }
+          ]
+        }
 
-  # IAM Instance Profile
-  EBInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
+  # SNS 토픽
+  AlertTopic:
+    Type: AWS::SNS::Topic
     Properties:
-      Roles:
-        - !Ref EBInstanceRole
+      TopicName: !Sub '${ProjectName}-alerts'
+      DisplayName: 'ASEO 플랫폼 알림'
 
-  EBInstanceRole:
-    Type: AWS::IAM::Role
+  # CloudWatch 알람 - 높은 CPU 사용률
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
     Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
-        - arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
-        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier
-      Policies:
-        - PolicyName: RDSAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - rds:DescribeDBInstances
-                  - secretsmanager:GetSecretValue
-                Resource: '*'
+      AlarmName: !Sub '${ProjectName}-high-cpu'
+      AlarmDescription: 'CPU 사용률이 높을 때 알림'
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+
+  # DB 비밀번호 파라미터
+  DBPassword:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aseo/db/password
+    NoEcho: true
 
 Outputs:
   ApplicationURL:
-    Description: Elastic Beanstalk 애플리케이션 URL
-    Value: !Sub 'http://${EBEnvironment.EndpointURL}'
-    Export:
-      Name: !Sub '${AWS::StackName}-AppURL'
-
+    Description: 'Elastic Beanstalk 애플리케이션 URL'
+    Value: !Sub 'http://${EBEnvironment}.${AWS::Region}.elasticbeanstalk.com'
+  
+  ApiGatewayURL:
+    Description: 'API Gateway URL'
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  
   RDSEndpoint:
-    Description: RDS 데이터베이스 엔드포인트
+    Description: 'RDS 엔드포인트'
     Value: !GetAtt RDSInstance.Endpoint.Address
-    Export:
-      Name: !Sub '${AWS::StackName}-RDSEndpoint'
-
-  SESIdentity:
-    Description: SES 이메일 아이덴티티
-    Value: !Ref SESEmailIdentity
-    Export:
-      Name: !Sub '${AWS::StackName}-SESIdentity'
+  
+  RedisEndpoint:
+    Description: 'Redis 엔드포인트'
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address

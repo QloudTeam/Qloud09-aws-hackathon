@@ -1,28 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ICEO - 효율 장인: Auto Scaling 웹서비스'
+Description: 'ICEO - 오토 스케일링: 인프라 중심의 제어형 탄력적 운영자를 위한 자동 확장 시스템'
 
 Parameters:
+  ProjectName:
+    Type: String
+    Default: iceo-autoscaling
+    Description: 프로젝트 이름
+  
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 인스턴스 접근용 키페어
-
-  MinSize:
-    Type: Number
-    Default: 2
-    Description: Auto Scaling Group 최소 인스턴스 수
-
-  MaxSize:
-    Type: Number
-    Default: 10
-    Description: Auto Scaling Group 최대 인스턴스 수
-
-  DesiredCapacity:
-    Type: Number
-    Default: 2
-    Description: Auto Scaling Group 원하는 인스턴스 수
+    Description: EC2 인스턴스용 키 페어
 
 Resources:
-  # VPC 및 네트워킹
+  # VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -31,9 +21,9 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: ICEO-VPC
+          Value: !Sub '${ProjectName}-vpc'
 
-  # 퍼블릭 서브넷 (Multi-AZ)
+  # 퍼블릭 서브넷들
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -43,7 +33,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: ICEO-Public-Subnet-1
+          Value: !Sub '${ProjectName}-public-subnet-1'
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -54,7 +44,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: ICEO-Public-Subnet-2
+          Value: !Sub '${ProjectName}-public-subnet-2'
 
   # 인터넷 게이트웨이
   InternetGateway:
@@ -62,7 +52,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: ICEO-IGW
+          Value: !Sub '${ProjectName}-igw'
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -70,14 +60,14 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # 라우트 테이블
+  # 라우팅 테이블
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: ICEO-Public-RT
+          Value: !Sub '${ProjectName}-public-rt'
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -87,6 +77,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
+  # 서브넷 연결
   PublicSubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -99,48 +90,11 @@ Resources:
       SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
-  # 보안 그룹
-  WebServerSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: 웹 서버용 보안 그룹
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: ICEO-WebServer-SG
-
-  ALBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: ALB용 보안 그룹
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: ICEO-ALB-SG
-
   # Application Load Balancer
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: ICEO-ALB
+      Name: !Sub '${ProjectName}-alb'
       Scheme: internet-facing
       Type: application
       Subnets:
@@ -148,15 +102,12 @@ Resources:
         - !Ref PublicSubnet2
       SecurityGroups:
         - !Ref ALBSecurityGroup
-      Tags:
-        - Key: Name
-          Value: ICEO-ALB
 
   # Target Group
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: ICEO-TG
+      Name: !Sub '${ProjectName}-tg'
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VPC
@@ -168,9 +119,6 @@ Resources:
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: '30'
-      Tags:
-        - Key: Name
-          Value: ICEO-TG
 
   # ALB Listener
   ALBListener:
@@ -183,203 +131,131 @@ Resources:
       Port: 80
       Protocol: HTTP
 
-  # IAM Role for EC2 instances
-  EC2Role:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'ICEO-EC2Role-${AWS::StackName}'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-      Policies:
-        - PolicyName: CloudWatchMetrics
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudwatch:PutMetricData
-                  - ec2:DescribeVolumes
-                  - ec2:DescribeTags
-                  - logs:PutLogEvents
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                Resource: '*'
-
-  EC2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref EC2Role
-
   # Launch Template
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: ICEO-LaunchTemplate
+      LaunchTemplateName: !Sub '${ProjectName}-lt'
       LaunchTemplateData:
-        ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2 AMI
+        ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2
         InstanceType: t3.micro
         KeyName: !Ref KeyPairName
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
         IamInstanceProfile:
           Arn: !GetAtt EC2InstanceProfile.Arn
-        SecurityGroupIds:
-          - !Ref WebServerSecurityGroup
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
             yum update -y
-            yum install -y httpd amazon-cloudwatch-agent
-            
-            # 웹 서버 설정
+            yum install -y httpd stress
             systemctl start httpd
             systemctl enable httpd
             
-            # 간단한 웹 애플리케이션 생성
+            # 간단한 웹 페이지 생성
             cat > /var/www/html/index.html << 'EOF'
             <!DOCTYPE html>
             <html>
             <head>
-                <title>ICEO Auto Scaling 웹서비스</title>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; }
-                    .container { max-width: 800px; margin: 0 auto; }
-                    .metric { background: #f0f0f0; padding: 20px; margin: 10px 0; border-radius: 5px; }
-                </style>
+                <title>ICEO Auto Scaling</title>
+                <meta http-equiv="refresh" content="5">
             </head>
             <body>
-                <div class="container">
-                    <h1>ICEO - 효율 장인 Auto Scaling 웹서비스</h1>
-                    <div class="metric">
-                        <h3>인스턴스 정보</h3>
-                        <p>인스턴스 ID: <span id="instanceId">로딩 중...</span></p>
-                        <p>가용 영역: <span id="az">로딩 중...</span></p>
-                        <p>현재 시간: <span id="currentTime"></span></p>
-                    </div>
-                    <div class="metric">
-                        <h3>부하 테스트</h3>
-                        <button onclick="generateLoad()">CPU 부하 생성</button>
-                        <p id="loadStatus"></p>
-                    </div>
-                </div>
-                
-                <script>
-                    // 인스턴스 메타데이터 가져오기
-                    fetch('http://169.254.169.254/latest/meta-data/instance-id')
-                        .then(response => response.text())
-                        .then(data => document.getElementById('instanceId').textContent = data);
-                    
-                    fetch('http://169.254.169.254/latest/meta-data/placement/availability-zone')
-                        .then(response => response.text())
-                        .then(data => document.getElementById('az').textContent = data);
-                    
-                    // 현재 시간 업데이트
-                    function updateTime() {
-                        document.getElementById('currentTime').textContent = new Date().toLocaleString();
-                    }
-                    setInterval(updateTime, 1000);
-                    updateTime();
-                    
-                    // CPU 부하 생성 함수
-                    function generateLoad() {
-                        document.getElementById('loadStatus').textContent = 'CPU 부하 생성 중... (10초)';
-                        fetch('/load')
-                            .then(() => {
-                                document.getElementById('loadStatus').textContent = 'CPU 부하 생성 완료';
-                                setTimeout(() => {
-                                    document.getElementById('loadStatus').textContent = '';
-                                }, 3000);
-                            });
-                    }
-                </script>
+                <h1>ICEO 오토 스케일링 시스템</h1>
+                <p>인스턴스 ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)</p>
+                <p>가용 영역: $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)</p>
+                <p>현재 시간: $(date)</p>
+                <p>CPU 사용률을 높이려면 <a href="/stress">여기</a>를 클릭하세요</p>
             </body>
             </html>
             EOF
             
             # 헬스 체크 엔드포인트
-            cat > /var/www/html/health << 'EOF'
-            OK
+            echo "OK" > /var/www/html/health
+            
+            # 스트레스 테스트 엔드포인트
+            cat > /var/www/html/stress.html << 'EOF'
+            <!DOCTYPE html>
+            <html>
+            <head><title>CPU 스트레스 테스트</title></head>
+            <body>
+                <h1>CPU 스트레스 테스트 시작</h1>
+                <p>5분간 CPU 부하를 생성합니다...</p>
+                <script>
+                    setTimeout(function() {
+                        window.location.href = '/';
+                    }, 5000);
+                </script>
+            </body>
+            </html>
             EOF
             
-            # CPU 부하 생성 스크립트
-            cat > /var/www/html/load << 'EOF'
+            # 스트레스 테스트 스크립트
+            cat > /usr/local/bin/cpu-stress.sh << 'EOF'
             #!/bin/bash
-            echo "Content-Type: text/plain"
-            echo ""
-            echo "Generating CPU load..."
-            
-            # 10초간 CPU 부하 생성
-            timeout 10s yes > /dev/null &
-            timeout 10s yes > /dev/null &
-            timeout 10s yes > /dev/null &
-            timeout 10s yes > /dev/null &
-            
-            echo "Load generation complete"
+            stress --cpu 2 --timeout 300s &
             EOF
-            chmod +x /var/www/html/load
+            chmod +x /usr/local/bin/cpu-stress.sh
             
-            # CloudWatch Agent 설정
+            # Apache 설정 - 스트레스 테스트 트리거
+            cat >> /etc/httpd/conf/httpd.conf << 'EOF'
+            
+            <Location "/stress">
+                SetHandler cgi-script
+                Options +ExecCGI
+            </Location>
+            EOF
+            
+            cat > /var/www/html/stress << 'EOF'
+            #!/bin/bash
+            echo "Content-Type: text/html"
+            echo ""
+            /usr/local/bin/cpu-stress.sh
+            cat /var/www/html/stress.html
+            EOF
+            chmod +x /var/www/html/stress
+            
+            systemctl restart httpd
+            
+            # CloudWatch 에이전트 설치 및 설정
+            yum install -y amazon-cloudwatch-agent
             cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
             {
-                "metrics": {
-                    "namespace": "ICEO/AutoScaling",
-                    "metrics_collected": {
-                        "cpu": {
-                            "measurement": [
-                                "cpu_usage_idle",
-                                "cpu_usage_iowait",
-                                "cpu_usage_user",
-                                "cpu_usage_system"
-                            ],
-                            "metrics_collection_interval": 60
-                        },
-                        "disk": {
-                            "measurement": [
-                                "used_percent"
-                            ],
-                            "metrics_collection_interval": 60,
-                            "resources": [
-                                "*"
-                            ]
-                        },
-                        "mem": {
-                            "measurement": [
-                                "mem_used_percent"
-                            ],
-                            "metrics_collection_interval": 60
-                        }
-                    }
+              "metrics": {
+                "namespace": "ICEO/AutoScaling",
+                "metrics_collected": {
+                  "cpu": {
+                    "measurement": ["cpu_usage_idle", "cpu_usage_iowait", "cpu_usage_user", "cpu_usage_system"],
+                    "metrics_collection_interval": 60
+                  },
+                  "disk": {
+                    "measurement": ["used_percent"],
+                    "metrics_collection_interval": 60,
+                    "resources": ["*"]
+                  },
+                  "mem": {
+                    "measurement": ["mem_used_percent"],
+                    "metrics_collection_interval": 60
+                  }
                 }
+              }
             }
             EOF
             
-            # CloudWatch Agent 시작
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-                -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: ICEO-WebServer
+              -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
   # Auto Scaling Group
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: ICEO-ASG
+      AutoScalingGroupName: !Sub '${ProjectName}-asg'
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
         Version: !GetAtt LaunchTemplate.LatestVersionNumber
-      MinSize: !Ref MinSize
-      MaxSize: !Ref MaxSize
-      DesiredCapacity: !Ref DesiredCapacity
+      MinSize: 1
+      MaxSize: 10
+      DesiredCapacity: 2
       VPCZoneIdentifier:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
@@ -390,7 +266,7 @@ Resources:
       DefaultCooldown: 300
       Tags:
         - Key: Name
-          Value: ICEO-ASG-Instance
+          Value: !Sub '${ProjectName}-asg-instance'
           PropagateAtLaunch: true
 
   # Auto Scaling Policies
@@ -400,7 +276,7 @@ Resources:
       AdjustmentType: ChangeInCapacity
       AutoScalingGroupName: !Ref AutoScalingGroup
       Cooldown: 300
-      ScalingAdjustment: 1
+      ScalingAdjustment: 2
       PolicyType: SimpleScaling
 
   ScaleDownPolicy:
@@ -412,11 +288,11 @@ Resources:
       ScalingAdjustment: -1
       PolicyType: SimpleScaling
 
-  # CloudWatch Alarms
-  CPUAlarmHigh:
+  # CloudWatch 알람들
+  HighCPUAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${AWS::StackName}-CPU-High'
+      AlarmName: !Sub '${ProjectName}-high-cpu'
       AlarmDescription: 'CPU 사용률이 높을 때 스케일 업'
       MetricName: CPUUtilization
       Namespace: AWS/EC2
@@ -430,44 +306,105 @@ Resources:
           Value: !Ref AutoScalingGroup
       AlarmActions:
         - !Ref ScaleUpPolicy
-        - !Ref SNSTopicArn
+        - !Ref SNSTopic
 
-  CPUAlarmLow:
+  LowCPUAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${AWS::StackName}-CPU-Low'
+      AlarmName: !Sub '${ProjectName}-low-cpu'
       AlarmDescription: 'CPU 사용률이 낮을 때 스케일 다운'
       MetricName: CPUUtilization
       Namespace: AWS/EC2
       Statistic: Average
       Period: 300
       EvaluationPeriods: 2
-      Threshold: 25
+      Threshold: 20
       ComparisonOperator: LessThanThreshold
       Dimensions:
         - Name: AutoScalingGroupName
           Value: !Ref AutoScalingGroup
       AlarmActions:
         - !Ref ScaleDownPolicy
-        - !Ref SNSTopicArn
 
-  # SNS Topic for notifications
+  # Target Tracking Scaling Policy
+  TargetTrackingScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 50.0
+        ScaleOutCooldown: 300
+        ScaleInCooldown: 300
+
+  # 보안 그룹들
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ProjectName}-alb-sg'
+      GroupDescription: 'ALB용 보안 그룹'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ProjectName}-ec2-sg'
+      GroupDescription: 'EC2 인스턴스용 보안 그룹'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  # IAM 역할
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2Role
+
+  # SNS 토픽
   SNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub '${AWS::StackName}-AutoScaling-Notifications'
-      DisplayName: ICEO Auto Scaling Notifications
+      TopicName: !Sub '${ProjectName}-scaling-alerts'
+      DisplayName: 'ICEO 오토 스케일링 알림'
 
-  SNSTopicArn:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub '${AWS::StackName}-Alarms'
-
-  # CloudWatch Dashboard
-  CloudWatchDashboard:
+  # CloudWatch 대시보드
+  ScalingDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
-      DashboardName: !Sub '${AWS::StackName}-ICEO-Dashboard'
+      DashboardName: !Sub '${ProjectName}-scaling-dashboard'
       DashboardBody: !Sub |
         {
           "widgets": [
@@ -479,24 +416,6 @@ Resources:
               "height": 6,
               "properties": {
                 "metrics": [
-                  [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${AutoScalingGroup}" ],
-                  [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${ApplicationLoadBalancer}" ],
-                  [ "AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${ApplicationLoadBalancer}" ]
-                ],
-                "period": 300,
-                "stat": "Average",
-                "region": "${AWS::Region}",
-                "title": "ICEO Auto Scaling Metrics"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 6,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
                   [ "AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "${AutoScalingGroup}" ],
                   [ ".", "GroupInServiceInstances", ".", "." ],
                   [ ".", "GroupTotalInstances", ".", "." ]
@@ -504,33 +423,58 @@ Resources:
                 "period": 300,
                 "stat": "Average",
                 "region": "${AWS::Region}",
-                "title": "Auto Scaling Group Status"
+                "title": "Auto Scaling Group 메트릭"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${AutoScalingGroup}" ]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "평균 CPU 사용률"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${ApplicationLoadBalancer.LoadBalancerFullName}" ],
+                  [ ".", "TargetResponseTime", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "로드 밸런서 메트릭"
               }
             }
           ]
         }
 
 Outputs:
-  LoadBalancerURL:
-    Description: Application Load Balancer URL
-    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}'
-    Export:
-      Name: !Sub '${AWS::StackName}-LoadBalancerURL'
-
+  LoadBalancerDNS:
+    Description: 'Application Load Balancer DNS 이름'
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  
   AutoScalingGroupName:
-    Description: Auto Scaling Group Name
+    Description: 'Auto Scaling Group 이름'
     Value: !Ref AutoScalingGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-ASG'
-
-  CloudWatchDashboardURL:
-    Description: CloudWatch Dashboard URL
-    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${AWS::StackName}-ICEO-Dashboard'
-    Export:
-      Name: !Sub '${AWS::StackName}-Dashboard'
-
-  SNSTopicArn:
-    Description: SNS Topic ARN for notifications
-    Value: !Ref SNSTopic
-    Export:
-      Name: !Sub '${AWS::StackName}-SNSTopic'
+  
+  DashboardURL:
+    Description: 'CloudWatch 대시보드 URL'
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${ProjectName}-scaling-dashboard'
+  
+  StressTestURL:
+    Description: 'CPU 스트레스 테스트 URL'
+    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/stress'

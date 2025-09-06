@@ -1,118 +1,330 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ISRV - 미래 설계자: S3 + Route 53 + CloudFront 글로벌 CDN'
+Description: 'ISRV - 글로벌 CDN: 인프라 중심의 서비스 지향 안정적 비전형을 위한 글로벌 콘텐츠 배포 네트워크'
 
 Parameters:
+  ProjectName:
+    Type: String
+    Default: isrv-global-cdn
+    Description: 프로젝트 이름
+  
   DomainName:
     Type: String
-    Default: ""
-    Description: 도메인 이름 (선택사항)
+    Default: ''
+    Description: '사용자 정의 도메인 이름 (선택사항)'
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
 
 Resources:
-  # S3 버킷 (오리진)
-  ContentBucket:
+  # S3 버킷 - 메인 콘텐츠
+  MainContentBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'isrv-content-${AWS::AccountId}'
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: error.html
+      BucketName: !Sub '${ProjectName}-main-content-${AWS::AccountId}'
       VersioningConfiguration:
         Status: Enabled
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteOldVersions
-            Status: Enabled
-            NoncurrentVersionExpirationInDays: 30
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
 
-  # CloudFront Origin Access Identity
-  CloudFrontOAI:
-    Type: AWS::CloudFront::OriginAccessIdentity
+  # S3 버킷 - 로그 저장소
+  LoggingBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      OriginAccessIdentityConfig:
-        Comment: ISRV Content Distribution OAI
+      BucketName: !Sub '${ProjectName}-logs-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
 
-  # S3 버킷 정책
-  ContentBucketPolicy:
-    Type: AWS::S3::BucketPolicy
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      Bucket: !Ref ContentBucket
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOAI}'
-            Action: s3:GetObject
-            Resource: !Sub '${ContentBucket}/*'
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   # CloudFront Distribution
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
+        Aliases: !If
+          - HasCustomDomain
+          - [!Ref DomainName]
+          - !Ref AWS::NoValue
         Origins:
           - Id: S3Origin
-            DomainName: !GetAtt ContentBucket.RegionalDomainName
+            DomainName: !GetAtt MainContentBucket.RegionalDomainName
             S3OriginConfig:
-              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOAI}'
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+          - Id: APIOrigin
+            DomainName: !Sub '${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
+            CustomOriginConfig:
+              HTTPPort: 443
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+            OriginPath: '/prod'
+        Enabled: true
+        DefaultRootObject: index.html
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods: [GET, HEAD, OPTIONS]
-          CachedMethods: [GET, HEAD]
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
           ForwardedValues:
             QueryString: false
             Cookies:
               Forward: none
           Compress: true
-          DefaultTTL: 86400
-          MaxTTL: 31536000
-        Enabled: true
-        Comment: ISRV Global Content Distribution
-        DefaultRootObject: index.html
-        PriceClass: PriceClass_All
-        HttpVersion: http2
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingOptimized
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: APIOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: true
+              Headers:
+                - Authorization
+                - Content-Type
+              Cookies:
+                Forward: all
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          - PathPattern: '/static/*'
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimizedForUncompressedObjects
+        PriceClass: PriceClass_All  # 전 세계 엣지 로케이션 사용
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref SSLCertificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        Logging:
+          Bucket: !GetAtt LoggingBucket.DomainName
+          IncludeCookies: false
+          Prefix: 'cloudfront-logs/'
         CustomErrorResponses:
           - ErrorCode: 404
             ResponseCode: 200
-            ResponsePagePath: /index.html
+            ResponsePagePath: '/index.html'
             ErrorCachingMinTTL: 300
           - ErrorCode: 403
             ResponseCode: 200
-            ResponsePagePath: /index.html
+            ResponsePagePath: '/index.html'
             ErrorCachingMinTTL: 300
 
-  # Route 53 Hosted Zone (선택사항)
-  Route53HostedZone:
+  # SSL 인증서 (사용자 정의 도메인이 있는 경우)
+  SSLCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZone
+
+  # Route 53 Hosted Zone (사용자 정의 도메인이 있는 경우)
+  HostedZone:
     Type: AWS::Route53::HostedZone
-    Condition: HasDomainName
+    Condition: HasCustomDomain
     Properties:
       Name: !Ref DomainName
-      HostedZoneConfig:
-        Comment: ISRV Global CDN Domain
 
-  # Route 53 Record (선택사항)
-  Route53Record:
+  # Route 53 Record (사용자 정의 도메인이 있는 경우)
+  DNSRecord:
     Type: AWS::Route53::RecordSet
-    Condition: HasDomainName
+    Condition: HasCustomDomain
     Properties:
-      HostedZoneId: !Ref Route53HostedZone
+      HostedZoneId: !Ref HostedZone
       Name: !Ref DomainName
       Type: A
       AliasTarget:
         DNSName: !GetAtt CloudFrontDistribution.DomainName
-        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront HostedZoneId
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront의 고정 Hosted Zone ID
 
-  # CloudWatch Alarms for monitoring
-  CloudFrontErrorRateAlarm:
+  # API Gateway
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+      Description: 'ISRV 글로벌 CDN API Gateway'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway 리소스
+  ApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: 'content'
+
+  # API Gateway 메서드
+  ApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ApiResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ContentApiFunction.Arn}/invocations'
+
+  # API Gateway 배포
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ApiMethod
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: prod
+
+  # Lambda 함수 - 콘텐츠 API
+  ContentApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-content-api'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          from datetime import datetime
+          
+          def lambda_handler(event, context):
+              # 콘텐츠 메타데이터 반환
+              content_metadata = {
+                  'timestamp': datetime.now().isoformat(),
+                  'version': '1.0.0',
+                  'cdn_regions': [
+                      'us-east-1', 'us-west-2', 'eu-west-1', 
+                      'ap-northeast-1', 'ap-southeast-1'
+                  ],
+                  'cache_status': 'active',
+                  'content_types': ['images', 'videos', 'documents', 'static-assets']
+              }
+              
+              return {
+                  'statusCode': 200,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*',
+                      'Cache-Control': 'max-age=300'
+                  },
+                  'body': json.dumps(content_metadata)
+              }
+
+  # Lambda 실행 역할
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Lambda 권한 - API Gateway
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ContentApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*'
+
+  # S3 버킷 정책 - CloudFront OAC
+  MainContentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MainContentBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${MainContentBucket}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # CloudWatch 알람 - 높은 에러율
+  HighErrorRateAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: ISRV-CloudFront-HighErrorRate
-      AlarmDescription: CloudFront error rate is too high
+      AlarmName: !Sub '${ProjectName}-high-error-rate'
+      AlarmDescription: 'CloudFront 4xx 에러율이 높을 때 알림'
       MetricName: 4xxErrorRate
       Namespace: AWS/CloudFront
       Statistic: Average
@@ -123,32 +335,181 @@ Resources:
       Dimensions:
         - Name: DistributionId
           Value: !Ref CloudFrontDistribution
+      AlarmActions:
+        - !Ref AlertTopic
 
-Conditions:
-  HasDomainName: !Not [!Equals [!Ref DomainName, ""]]
+  # CloudWatch 알람 - 높은 지연시간
+  HighLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-high-latency'
+      AlarmDescription: 'CloudFront 오리진 지연시간이 높을 때 알림'
+      MetricName: OriginLatency
+      Namespace: AWS/CloudFront
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref CloudFrontDistribution
+      AlarmActions:
+        - !Ref AlertTopic
+
+  # SNS 토픽
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ProjectName}-alerts'
+      DisplayName: 'ISRV 글로벌 CDN 알림'
+
+  # CloudWatch 대시보드
+  CDNDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-cdn-dashboard'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/CloudFront", "Requests", "DistributionId", "${CloudFrontDistribution}" ],
+                  [ ".", "BytesDownloaded", ".", "." ],
+                  [ ".", "BytesUploaded", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "us-east-1",
+                "title": "CloudFront 트래픽 메트릭"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/CloudFront", "4xxErrorRate", "DistributionId", "${CloudFrontDistribution}" ],
+                  [ ".", "5xxErrorRate", ".", "." ],
+                  [ ".", "OriginLatency", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "us-east-1",
+                "title": "CloudFront 성능 메트릭"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/CloudFront", "CacheHitRate", "DistributionId", "${CloudFrontDistribution}" ]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "us-east-1",
+                "title": "캐시 히트율"
+              }
+            }
+          ]
+        }
+
+  # Lambda 함수 - 캐시 무효화
+  CacheInvalidationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-cache-invalidation'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt CacheInvalidationRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import uuid
+          
+          def lambda_handler(event, context):
+              cloudfront = boto3.client('cloudfront')
+              
+              # 캐시 무효화 요청
+              response = cloudfront.create_invalidation(
+                  DistributionId=event.get('distribution_id'),
+                  InvalidationBatch={
+                      'Paths': {
+                          'Quantity': len(event.get('paths', ['/*'])),
+                          'Items': event.get('paths', ['/*'])
+                      },
+                      'CallerReference': str(uuid.uuid4())
+                  }
+              )
+              
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'invalidation_id': response['Invalidation']['Id'],
+                      'status': response['Invalidation']['Status']
+                  })
+              }
+
+  # Lambda 실행 역할 - 캐시 무효화
+  CacheInvalidationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudFrontInvalidation
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: '*'
 
 Outputs:
-  CloudFrontURL:
-    Description: CloudFront Distribution URL
-    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
-    Export:
-      Name: !Sub '${AWS::StackName}-CloudFrontURL'
-
+  CloudFrontDomainName:
+    Description: 'CloudFront 배포 도메인 이름'
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  
+  CustomDomainName:
+    Description: '사용자 정의 도메인 이름'
+    Value: !If [HasCustomDomain, !Ref DomainName, 'N/A']
+    Condition: HasCustomDomain
+  
   S3BucketName:
-    Description: S3 Content Bucket Name
-    Value: !Ref ContentBucket
-    Export:
-      Name: !Sub '${AWS::StackName}-ContentBucket'
-
+    Description: '메인 콘텐츠 S3 버킷 이름'
+    Value: !Ref MainContentBucket
+  
+  ApiGatewayURL:
+    Description: 'API Gateway URL'
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  
+  DashboardURL:
+    Description: 'CloudWatch 대시보드 URL'
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${ProjectName}-cdn-dashboard'
+  
   DistributionId:
-    Description: CloudFront Distribution ID
+    Description: 'CloudFront 배포 ID'
     Value: !Ref CloudFrontDistribution
-    Export:
-      Name: !Sub '${AWS::StackName}-DistributionId'
-
-  DomainName:
-    Condition: HasDomainName
-    Description: Custom Domain Name
-    Value: !Ref DomainName
-    Export:
-      Name: !Sub '${AWS::StackName}-DomainName'

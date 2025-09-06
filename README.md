@@ -211,6 +211,9 @@ cd Qloud09-aws-hackathon
 # 인프라 배포
 ./scripts/deploy.sh production
 
+# 슬랙 봇 Lambda 함수 배포 (선택사항)
+./scripts/deploy-slack-bot.sh production
+
 # 의존성 설치
 npm install
 
@@ -229,6 +232,37 @@ eb deploy
 ```
 
 
+# 정리
+./scripts/destroy.sh production
+
+```
+
+**방법 2: 수동 배포**
+```bash
+# 1. 프론트엔드 빌드
+npm run build
+
+# 2. Terraform 인프라 배포
+cd terraform
+terraform init
+terraform plan -var-file="environments/production.tfvars" \
+  -var="aws_access_key_id=YOUR_KEY" \
+  -var="aws_secret_access_key=YOUR_SECRET"
+terraform apply -var-file="environments/production.tfvars" \
+  -var="aws_access_key_id=YOUR_KEY" \
+  -var="aws_secret_access_key=YOUR_SECRET"
+
+# 3. 슬랙 봇 Lambda 함수 배포 (선택사항)
+cd ..
+aws cloudformation create-stack \
+  --stack-name cbti-slack-bot-production \
+  --template-body file://infrastructure/slack-bot-lambda.yaml \
+  --parameters ParameterKey=Environment,ParameterValue=production \
+  --capabilities CAPABILITY_NAMED_IAM
+
+# 4. 애플리케이션 배포
+eb init --platform "Node.js 20" --region us-east-1
+eb deploy
 
 ### AWS 아키텍처
 
@@ -293,8 +327,72 @@ environment_name = "qloud-production"
 parameter_store_parameters = [
   "/qloud/aws/access-key-id",
   "/qloud/aws/secret-access-key",
-  "/qloud/aws/region"
+  "/qloud/aws/region",
+  "/qloud/slack/bot-token"
 ]
+```
+
+### 슬랙 봇 기능 설정
+
+**1. 슬랙 봇 토큰 설정**
+```bash
+# Parameter Store에 슬랙 봇 토큰 저장
+aws ssm put-parameter \
+  --name "/qloud/slack/bot-token" \
+  --value "xoxb-your-slack-bot-token" \
+  --type "SecureString" \
+  --overwrite
+```
+
+**2. 슬랙 봇 배포**
+```bash
+# 자동 배포 스크립트 사용
+./scripts/deploy-slack-bot.sh production
+
+# 또는 수동 CloudFormation 배포
+aws cloudformation create-stack \
+  --stack-name cbti-slack-bot-production \
+  --template-body file://infrastructure/slack-bot-lambda.yaml \
+  --parameters ParameterKey=Environment,ParameterValue=production \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+**3. 슬랙 앱 Event Subscriptions 설정**
+
+배포 완료 후 슬랙 앱 설정에서 다음을 설정하세요:
+
+1. **Request URL 설정**:
+   ```
+   https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/production/events
+   ```
+   (배포 시 출력되는 `Slack Events URL` 사용)
+
+2. **Subscribe to bot events**:
+   - `app_mention` - 봇 멘션 이벤트
+   - `message.channels` - 채널 메시지 이벤트
+
+3. **OAuth & Permissions**:
+   - `chat:write` - 메시지 전송 권한
+   - `channels:read` - 채널 정보 읽기 권한
+
+**4. 기능 동작**
+- 결과 페이지에서 "슬랙으로 연결하기" 버튼 클릭
+- 자동으로 슬랙 채널 `C09DP7K4BRQ`에 메시지 전송
+- 사용자를 슬랙 워크스페이스로 리디렉션
+
+**전송되는 메시지 예시**:
+```
+안녕하세요 @사용자닉네임 님! 🎉
+
+지금 만나요:
+• 탐험가김씨
+• 모험가박씨
+• 개척자이씨
+• 탐사자정씨
+• 발견자최씨
+
+💡 질문이 있을 경우 @AWS Q bot ask 를 통해 봇을 호출하세요!
+예시: @AWS Q bot ask S3 버킷 생성 방법을 알려주세요
 ```
 
 ### 리소스 삭제
