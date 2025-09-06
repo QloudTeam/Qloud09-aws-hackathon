@@ -3,17 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CBTIType, UserInfo } from '../types';
 import cbtiData from '../data/cbti.json';
 import html2canvas from 'html2canvas';
-import ArchitectureDiagram from '../components/ArchitectureDiagram';
 import LocalTestNotice from '../components/LocalTestNotice';
 import { handleSlackIntegration } from '../utils/slackIntegration';
-import { generateArchitecture } from '../utils/architectureGenerator';
-import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
-import { architectureReasons } from '../data/architectureReasons';
 import { cbtiCompatibility } from '../data/cbtiCompatibility';
+import { saveCBTIResult, getCompatibleUsers, CBTIUser, CBTIMatchResult } from '../utils/dynamodbService';
 
-//mport { handleSlackIntegration } from '../utils/slackIntegration';
-// import { generateArchitecture } from '../utils/architectureGenerator';
-// import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
+
 
 /**
  * CBTI 테스트 결과 페이지 컴포넌트
@@ -25,6 +20,9 @@ const ResultPage: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string>('');
   const [imageLoading, setImageLoading] = useState<boolean>(false);
+  const [userNickname, setUserNickname] = useState<string>('');
+  const [compatibleUsers, setCompatibleUsers] = useState<CBTIMatchResult>({ bestMatches: [], worstMatches: [] });
+  const [usersLoading, setUsersLoading] = useState<boolean>(false);
 
   const type = searchParams.get('type');
 
@@ -41,6 +39,34 @@ const ResultPage: React.FC = () => {
     const savedUserInfo = localStorage.getItem('userInfo');
     if (savedUserInfo) {
       setUserInfo(JSON.parse(savedUserInfo));
+    }
+
+    // 닉네임 가져오기
+    const savedNickname = localStorage.getItem('userNickname');
+    if (savedNickname) {
+      setUserNickname(savedNickname);
+      
+      // DynamoDB에 결과 저장
+      saveCBTIResult(savedNickname, type).then(success => {
+        if (success) {
+          console.log('CBTI 결과가 성공적으로 저장되었습니다.');
+        }
+      });
+    }
+
+    // 호환되는 사용자들 조회
+    const cbtiTypeData = cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES];
+    const compatibility = cbtiCompatibility[type];
+    
+    if (compatibility) {
+      setUsersLoading(true);
+      const bestMatchTypes = compatibility.bestMatches.map(match => match.type);
+      const worstMatchTypes = compatibility.worstMatches.map(match => match.type);
+      
+      getCompatibleUsers(bestMatchTypes, worstMatchTypes).then(result => {
+        setCompatibleUsers(result);
+        setUsersLoading(false);
+      });
     }
 
     // Bedrock 이미지 생성 (비동기로 처리)
@@ -271,6 +297,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
   const handleRestart = () => {
     localStorage.removeItem('cbtiAnswers');
     localStorage.removeItem('userInfo');
+    localStorage.removeItem('userNickname');
     navigate('/');
   };
 
@@ -283,7 +310,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
       <div id="result-content" className="result-content">
         {/* Top Section */}
         <div className="result-top">
-          <h1>당신의 클라우드 유형은...</h1>
+          <h1>{userNickname ? `${userNickname}님의 클라우드 유형은...` : '당신의 클라우드 유형은...'}</h1>
           <div className="type-info">
             <div className="cbti-code">{type}</div>
             <h2>{cbtiType.name}</h2>
@@ -325,14 +352,6 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               <button className="action-button" onClick={handlePageSave} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
                 페이지 저장
               </button>
-              <button className="action-button" onClick={handleCodeDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
-                코드 다운
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
-              <button className="action-button" onClick={() => navigate(`/image-generator?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', flex: 1 }}>
-                🎨 이미지 생성
-              </button>
               <button className="action-button" onClick={() => navigate(`/architecture?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', flex: 1 }}>
                 🏗️ 아키텍처 보기
               </button>
@@ -350,12 +369,6 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
             <button className="action-button" onClick={handlePageSave} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
               페이지 저장
             </button>
-            <button className="action-button" onClick={handleCodeDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
-              코드 다운
-            </button>
-            <button className="action-button" onClick={() => navigate(`/image-generator?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
-              🎨 이미지 생성
-            </button>
             <button className="action-button" onClick={() => navigate(`/architecture?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
               🏗️ 아키텍처 보기
             </button>
@@ -371,48 +384,65 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
             <div className="compatibility-section">
               <h3>🤝 나와 잘 맞는 & 안 맞는 CBTI</h3>
               
-              <div className="compatibility-content">
-                <div className="best-matches">
-                  <h4>🚀 나와 잘 맞는 CBTI</h4>
-                  <div className="match-cards">
-                    {cbtiCompatibility[type].bestMatches.map((match, index) => (
-                      <div key={index} className="match-card best-match">
-                        <div className="match-header">
-                          <span className="match-type">{match.type}</span>
-                          <span className="match-name">{match.name}</span>
+              {usersLoading ? (
+                <div className="users-loading">
+                  <p>호환되는 사용자들을 찾고 있습니다...</p>
+                </div>
+              ) : (
+                <div className="compatibility-content">
+                  <div className="best-matches">
+                    <h4>🚀 나와 잘 맞는 CBTI 사용자들</h4>
+                    <div className="match-cards">
+                      {compatibleUsers.bestMatches.length > 0 ? (
+                        compatibleUsers.bestMatches.map((user, index) => {
+                          const matchInfo = cbtiCompatibility[type].bestMatches.find(m => m.type === user.cbtiType);
+                          return (
+                            <div key={index} className="match-card best-match">
+                              <div className="match-header">
+                                <span className="match-type">{user.cbtiType}</span>
+                                <span className="match-name">{matchInfo?.name || ''}</span>
+                                <span className="user-nickname">👤 {user.nickname}</span>
+                              </div>
+                              <p className="match-reason">{matchInfo?.reason || ''}</p>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="no-users">
+                          <p>아직 매칭되는 사용자가 없습니다. 더 많은 사람들이 참여하면 매칭될 수 있어요!</p>
                         </div>
-                        <p className="match-reason">{match.reason}</p>
-                      </div>
-                    ))}
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="worst-matches">
+                    <h4>⚠️ 나와 안 맞는 CBTI 사용자들</h4>
+                    <div className="match-cards">
+                      {compatibleUsers.worstMatches.length > 0 ? (
+                        compatibleUsers.worstMatches.map((user, index) => {
+                          const matchInfo = cbtiCompatibility[type].worstMatches.find(m => m.type === user.cbtiType);
+                          return (
+                            <div key={index} className="match-card worst-match">
+                              <div className="match-header">
+                                <span className="match-type">{user.cbtiType}</span>
+                                <span className="match-name">{matchInfo?.name || ''}</span>
+                                <span className="user-nickname">👤 {user.nickname}</span>
+                              </div>
+                              <p className="match-reason">{matchInfo?.reason || ''}</p>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="no-users">
+                          <p>아직 매칭되는 사용자가 없습니다.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                
-                <div className="worst-matches">
-                  <h4>⚠️ 나와 안 맞는 CBTI</h4>
-                  <div className="match-cards">
-                    {cbtiCompatibility[type].worstMatches.map((match, index) => (
-                      <div key={index} className="match-card worst-match">
-                        <div className="match-header">
-                          <span className="match-type">{match.type}</span>
-                          <span className="match-name">{match.name}</span>
-                        </div>
-                        <p className="match-reason">{match.reason}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
-          
-          <div className="architecture-section">
-            <h3>{cbtiType.name}을 위한 추천 아키텍처</h3>
-            
-            <ArchitectureDiagram 
-              cbtiType={type || 'ASEV'} 
-              recommendedServices={cbtiType.recommended_services || []}
-            />
-          </div>
         </div>
       </div>
     </div>

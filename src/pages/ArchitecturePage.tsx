@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import cbtiData from '../data/cbti.json';
 import { architectureDescriptions } from '../data/architectureDescriptions';
+import { architectureReasons } from '../data/architectureReasons';
 
 /**
  * CBTI별 아키텍처 확인 페이지
@@ -110,6 +111,35 @@ const ArchitecturePage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* 아키텍처 추천 이유 섹션 */}
+            {architectureReasons[selectedCBTI] && (
+              <div className="architecture-reason-section">
+                <h3>🎯 왜 이 아키텍처를 추천하나요?</h3>
+                <div className="reason-content">
+                  <div className="reason-item">
+                    <h4>💡 성격 분석</h4>
+                    <p>{architectureReasons[selectedCBTI].personalityMatch}</p>
+                  </div>
+                  <div className="reason-item">
+                    <h4>🔧 기술적 적합성</h4>
+                    <p>{architectureReasons[selectedCBTI].technicalAlignment}</p>
+                  </div>
+                  <div className="reason-item">
+                    <h4>⭐ 업무 스타일</h4>
+                    <p>{architectureReasons[selectedCBTI].workStyle}</p>
+                  </div>
+                  <div className="reason-item">
+                    <h4>🚀 기대 효과</h4>
+                    <ul>
+                      {architectureReasons[selectedCBTI].benefits.map((benefit, index) => (
+                        <li key={index}>{benefit}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="architecture-description">
               <h3>📝 아키텍처 설명</h3>

@@ -10,7 +10,7 @@ const HomePage: React.FC = () => {
 
 
  const handleStartTest = () => {
-   navigate('/test');
+   navigate('/nickname');
  };
 
 

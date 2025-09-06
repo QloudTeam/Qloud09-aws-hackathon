@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
+import NicknameInputPage from './pages/NicknameInputPage';
 import TestPage from './pages/TestPage';
 import CharacterInfoPage from './pages/CharacterInfoPage';
 import ResultPage from './pages/ResultPage';
@@ -17,6 +18,7 @@ const App: React.FC = () => {
       <div className="App">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/nickname" element={<NicknameInputPage />} />
           <Route path="/test" element={<TestPage />} />
           <Route path="/character-info" element={<CharacterInfoPage />} />
           <Route path="/result" element={<ResultPage />} />

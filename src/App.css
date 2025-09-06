@@ -1489,6 +1489,61 @@ body {
   line-height: 1.5;
 }
 
+/* ArchitecturePage 추천 이유 스타일 */
+.architecture-reason-section {
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: #f8f9ff;
+  border-radius: 15px;
+  border-left: 4px solid #667eea;
+}
+
+.architecture-reason-section h3 {
+  margin-bottom: 1.5rem;
+  color: #667eea;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.architecture-reason-section .reason-content {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.architecture-reason-section .reason-item {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.architecture-reason-section .reason-item h4 {
+  margin-bottom: 0.8rem;
+  color: #4a5568;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.architecture-reason-section .reason-item p {
+  color: #2d3748;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.architecture-reason-section .reason-item ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.architecture-reason-section .reason-item li {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
   .secondary-buttons {
     flex-direction: column;
@@ -1506,6 +1561,191 @@ body {
   .cbti-tags {
     flex-direction: column;
     align-items: center;
+  }
+  
+  /* 모바일 ArchitecturePage 추천 이유 스타일 */
+  .architecture-reason-section {
+    padding: 1rem;
+    margin-bottom: 2rem;
+  }
+  
+  .architecture-reason-section h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .architecture-reason-section .reason-content {
+    gap: 1rem;
+  }
+  
+  .architecture-reason-section .reason-item {
+    padding: 1rem;
+  }
+  
+  .architecture-reason-section .reason-item h4 {
+    font-size: 1rem;
+  }
+  
+  .architecture-reason-section .reason-item p,
+  .architecture-reason-section .reason-item li {
+    word-break: keep-all;
+    line-height: 1.5;
+    font-size: 0.9rem;
+  }
+}
+
+/* NicknameInputPage 스타일 */
+.nickname-input-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: #f5f7fa;
+}
+
+.nickname-input-content {
+  background: white;
+  padding: 3rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+.nickname-form {
+  margin: 2rem 0;
+}
+
+.form-group {
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.nickname-input {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  transition: border-color 0.3s ease;
+}
+
+.nickname-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.input-info {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.char-count {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.start-test-button {
+  width: 100%;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 15px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.start-test-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.start-test-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.info-box {
+  background: #f8f9ff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  text-align: left;
+}
+
+.info-box h3 {
+  margin-bottom: 1rem;
+  color: #667eea;
+}
+
+.info-box ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.info-box li {
+  margin-bottom: 0.5rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* 사용자 매칭 스타일 */
+.users-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.user-nickname {
+  background: #f0f8ff;
+  color: #667eea;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.no-users {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-style: italic;
+}
+
+.match-header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .nickname-input-content {
+    padding: 2rem;
+  }
+  
+  .match-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .user-nickname {
+    align-self: flex-start;
   }
   
   .description-section p,

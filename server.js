@@ -2,6 +2,8 @@ const express = require('express');
 const path = require('path');
 const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
+const { DynamoDBClient, PutItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
+const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -61,6 +63,121 @@ app.post('/api/bedrock-image', async (req, res) => {
     }
   } catch (error) {
     console.error('Bedrock API error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// CBTI 결과 저장 API
+app.post('/api/cbti-result', async (req, res) => {
+  try {
+    const { nickname, cbtiType, createdAt } = req.body;
+    
+    const accessKeyId = await getParameter('/qloud/aws/access-key-id');
+    const secretAccessKey = await getParameter('/qloud/aws/secret-access-key');
+    const region = await getParameter('/qloud/aws/region');
+    
+    const dynamoClient = new DynamoDBClient({
+      region,
+      credentials: { accessKeyId, secretAccessKey }
+    });
+
+    const item = {
+      nickname,
+      cbtiType,
+      createdAt,
+      ttl: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) // 30일 후 만료
+    };
+
+    const command = new PutItemCommand({
+      TableName: 'cbti-users',
+      Item: marshall(item)
+    });
+
+    await dynamoClient.send(command);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('DynamoDB save error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 호환 사용자 조회 API
+app.post('/api/cbti-matches', async (req, res) => {
+  try {
+    const { bestMatchTypes, worstMatchTypes } = req.body;
+    
+    const accessKeyId = await getParameter('/qloud/aws/access-key-id');
+    const secretAccessKey = await getParameter('/qloud/aws/secret-access-key');
+    const region = await getParameter('/qloud/aws/region');
+    
+    const dynamoClient = new DynamoDBClient({
+      region,
+      credentials: { accessKeyId, secretAccessKey }
+    });
+
+    // 최근 사용자들만 조회 (최대 5명씩)
+    const getBestMatches = async () => {
+      const results = [];
+      for (const cbtiType of bestMatchTypes) {
+        try {
+          const command = new QueryCommand({
+            TableName: 'cbti-users',
+            IndexName: 'cbtiType-createdAt-index',
+            KeyConditionExpression: 'cbtiType = :cbtiType',
+            ExpressionAttributeValues: marshall({
+              ':cbtiType': cbtiType
+            }),
+            ScanIndexForward: false, // 최신순
+            Limit: 3
+          });
+          
+          const response = await dynamoClient.send(command);
+          const items = response.Items?.map(item => unmarshall(item)) || [];
+          results.push(...items);
+        } catch (error) {
+          console.error(`Error querying ${cbtiType}:`, error);
+        }
+      }
+      return results.slice(0, 5); // 최대 5명
+    };
+
+    const getWorstMatches = async () => {
+      const results = [];
+      for (const cbtiType of worstMatchTypes) {
+        try {
+          const command = new QueryCommand({
+            TableName: 'cbti-users',
+            IndexName: 'cbtiType-createdAt-index',
+            KeyConditionExpression: 'cbtiType = :cbtiType',
+            ExpressionAttributeValues: marshall({
+              ':cbtiType': cbtiType
+            }),
+            ScanIndexForward: false, // 최신순
+            Limit: 3
+          });
+          
+          const response = await dynamoClient.send(command);
+          const items = response.Items?.map(item => unmarshall(item)) || [];
+          results.push(...items);
+        } catch (error) {
+          console.error(`Error querying ${cbtiType}:`, error);
+        }
+      }
+      return results.slice(0, 5); // 최대 5명
+    };
+
+    const [bestMatches, worstMatches] = await Promise.all([
+      getBestMatches(),
+      getWorstMatches()
+    ]);
+
+    res.json({ 
+      success: true, 
+      bestMatches: bestMatches || [], 
+      worstMatches: worstMatches || [] 
+    });
+  } catch (error) {
+    console.error('DynamoDB query error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
