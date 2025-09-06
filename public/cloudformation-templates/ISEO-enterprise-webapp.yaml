@@ -1,57 +1,35 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ISEO - 안정성 마스터: 엔터프라이즈 웹 애플리케이션'
+Description: 'ISEO - 안정성 마스터 아키텍처: 고가용성 Multi-AZ 웹 애플리케이션'
 
 Parameters:
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 키페어
+    Description: EC2 인스턴스용 키페어
+  
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
 
 Resources:
+  # VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
       EnableDnsHostnames: true
-      Tags: [{Key: Name, Value: ISEO-VPC}]
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-vpc'
 
-  PrivateSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
-      Tags: [{Key: Name, Value: ISEO-Private-1}]
-
-  PrivateSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
-      Tags: [{Key: Name, Value: ISEO-Private-2}]
-
-  PublicSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.3.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
-      MapPublicIpOnLaunch: true
-      Tags: [{Key: Name, Value: ISEO-Public-1}]
-
-  PublicSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.4.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
-      MapPublicIpOnLaunch: true
-      Tags: [{Key: Name, Value: ISEO-Public-2}]
-
+  # Internet Gateway
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
-      Tags: [{Key: Name, Value: ISEO-IGW}]
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-igw'
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -59,17 +37,99 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  ALB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  # Public Subnets (Multi-AZ)
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
     Properties:
-      Name: ISEO-ALB
-      Subnets: [!Ref PublicSubnet1, !Ref PublicSubnet2]
-      SecurityGroups: [!Ref ALBSecurityGroup]
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-public-1a'
 
-  ALBSecurityGroup:
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-public-1b'
+
+  # Private Subnets for RDS
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-private-1a'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-private-1b'
+
+  # Route Tables
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Groups
+  WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB Security Group
+      GroupDescription: Security group for web servers
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for load balancer
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -77,77 +137,189 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-  AppSecurityGroup:
+  DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: App Security Group
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
-
-  RDSSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Properties:
-      DBSubnetGroupDescription: RDS Subnet Group
-      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
-
-  RDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: RDS Security Group
+      GroupDescription: Security group for RDS database
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId: !Ref AppSecurityGroup
+          SourceSecurityGroupId: !Ref WebSecurityGroup
 
+  # Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${Environment}-iseo-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+
+  # Target Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Environment}-iseo-tg'
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      Targets:
+        - Id: !Ref EC2Instance1
+        - Id: !Ref EC2Instance2
+
+  # Listener
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # EC2 Instances (Multi-AZ)
+  EC2Instance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2
+      InstanceType: t3.micro
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
+        - !Ref WebSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>ISEO Primary Server (AZ-1a)</h1>" > /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-primary-1a'
+
+  EC2Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2
+      InstanceType: t3.micro
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet2
+      SecurityGroupIds:
+        - !Ref WebSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>ISEO Standby Server (AZ-1b)</h1>" > /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-standby-1b'
+
+  # RDS Subnet Group
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS database
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-iseo-db-subnet-group'
+
+  # RDS Instance (Multi-AZ)
   RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: iseo-database
+      DBInstanceIdentifier: !Sub '${Environment}-iseo-database'
       DBInstanceClass: db.t3.micro
       Engine: mysql
+      EngineVersion: '8.0'
       MasterUsername: admin
-      MasterUserPassword: password123
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${Environment}-iseo-db-password:SecretString:password}}'
       AllocatedStorage: 20
-      VPCSecurityGroups: [!Ref RDSSecurityGroup]
-      DBSubnetGroupName: !Ref RDSSubnetGroup
+      StorageType: gp2
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
       MultiAZ: true
       BackupRetentionPeriod: 7
       DeletionProtection: false
 
-  ElastiCacheSubnetGroup:
-    Type: AWS::ElastiCache::SubnetGroup
+  # Database Password Secret
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
     Properties:
-      Description: ElastiCache Subnet Group
-      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+      Name: !Sub '${Environment}-iseo-db-password'
+      Description: RDS database password
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
 
-  ElastiCacheCluster:
-    Type: AWS::ElastiCache::CacheCluster
+  # CloudWatch Alarms
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
     Properties:
-      CacheNodeType: cache.t3.micro
-      Engine: redis
-      NumCacheNodes: 1
-      VpcSecurityGroupIds: [!Ref CacheSecurityGroup]
-      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      AlarmName: !Sub '${Environment}-iseo-high-cpu'
+      AlarmDescription: High CPU utilization alarm
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref EC2Instance1
 
-  CacheSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  DatabaseCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
     Properties:
-      GroupDescription: Cache Security Group
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 6379
-          ToPort: 6379
-          SourceSecurityGroupId: !Ref AppSecurityGroup
+      AlarmName: !Sub '${Environment}-iseo-db-high-cpu'
+      AlarmDescription: High database CPU utilization
+      MetricName: CPUUtilization
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstance
 
 Outputs:
-  ALBEndpoint:
-    Value: !GetAtt ALB.DNSName
-  RDSEndpoint:
+  LoadBalancerDNS:
+    Description: Application Load Balancer DNS Name
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub '${AWS::StackName}-LoadBalancerDNS'
+
+  DatabaseEndpoint:
+    Description: RDS Database Endpoint
     Value: !GetAtt RDSInstance.Endpoint.Address
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseEndpoint'
+
+  WebsiteURL:
+    Description: Website URL
+    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'

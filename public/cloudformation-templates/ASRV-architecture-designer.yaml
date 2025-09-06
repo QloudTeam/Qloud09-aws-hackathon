@@ -1,13 +1,229 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ASRV - 아키텍처 디자이너: RDS + CloudWatch + VPC Well-Architected 앱'
+Description: 'ASRV - 아키텍처 디자이너: 애플리케이션 중심의 서비스 지향 안정적 비전형을 위한 마이크로서비스 아키텍처'
 
 Parameters:
-  KeyPairName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 키페어
+  ProjectName:
+    Type: String
+    Default: asrv-architecture
+    Description: 프로젝트 이름
 
 Resources:
-  # VPC 설계
+  # ECS 클러스터
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${ProjectName}-cluster'
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 4
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${ProjectName}-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+
+  # Target Group - API 서비스
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ProjectName}-api-tg'
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: ip
+      HealthCheckPath: /api/health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+
+  # Target Group - 웹 서비스
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ProjectName}-web-tg'
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+
+  # ALB Listener
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # ALB Listener Rule - API 경로
+  ApiListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/api/*'
+      ListenerArn: !Ref ALBListener
+      Priority: 100
+
+  # ECS Task Definition - API 서비스
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-api'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !GetAtt ECSExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: api-container
+          Image: nginx:latest
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApiLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: DB_HOST
+              Value: !GetAtt RDSInstance.Endpoint.Address
+
+  # ECS Task Definition - 웹 서비스
+  WebTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-web'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !GetAtt ECSExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: web-container
+          Image: nginx:latest
+          PortMappings:
+            - ContainerPort: 80
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref WebLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: web
+
+  # ECS Service - API
+  ApiService:
+    Type: AWS::ECS::Service
+    DependsOn: ApiListenerRule
+    Properties:
+      ServiceName: !Sub '${ProjectName}-api-service'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          AssignPublicIp: DISABLED
+      LoadBalancers:
+        - ContainerName: api-container
+          ContainerPort: 3000
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  # ECS Service - 웹
+  WebService:
+    Type: AWS::ECS::Service
+    DependsOn: ALBListener
+    Properties:
+      ServiceName: !Sub '${ProjectName}-web-service'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref WebTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          AssignPublicIp: DISABLED
+      LoadBalancers:
+        - ContainerName: web-container
+          ContainerPort: 80
+          TargetGroupArn: !Ref WebTargetGroup
+
+  # RDS 인스턴스
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub '${ProjectName}-db'
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: '13.7'
+      MasterUsername: postgres
+      MasterUserPassword: !Ref DBPassword
+      AllocatedStorage: 20
+      StorageType: gp2
+      StorageEncrypted: true
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      MultiAZ: false
+      PubliclyAccessible: false
+
+  # ElastiCache Redis 클러스터
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheClusterId: !Sub '${ProjectName}-redis'
+      Engine: redis
+      CacheNodeType: cache.t3.micro
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+
+  # VPC 및 네트워킹
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -16,112 +232,75 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: ASRV-VPC
+          Value: !Sub '${ProjectName}-vpc'
 
-  # 프라이빗 서브넷 (데이터베이스용)
-  PrivateSubnet1:
+  PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.0.1.0/24
       AvailabilityZone: !Select [0, !GetAZs '']
-      Tags:
-        - Key: Name
-          Value: ASRV-Private-DB-1
-
-  PrivateSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
-      Tags:
-        - Key: Name
-          Value: ASRV-Private-DB-2
-
-  # 퍼블릭 서브넷 (애플리케이션용)
-  PublicSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.3.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: ASRV-Public-App-1
+          Value: !Sub '${ProjectName}-public-subnet-1'
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.4.0/24
+      CidrBlock: 10.0.2.0/24
       AvailabilityZone: !Select [1, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: ASRV-Public-App-2
+          Value: !Sub '${ProjectName}-public-subnet-2'
 
-  # 인터넷 게이트웨이
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: ASRV-IGW
-
-  AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
-
-  # 라우트 테이블
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: ASRV-Public-RT
+          Value: !Sub '${ProjectName}-private-subnet-1'
 
-  PublicRoute:
-    Type: AWS::EC2::Route
-    DependsOn: AttachGateway
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
     Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-private-subnet-2'
 
-  PublicSubnetRouteTableAssociation1:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnet1
-      RouteTableId: !Ref PublicRouteTable
-
-  PublicSubnetRouteTableAssociation2:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnet2
-      RouteTableId: !Ref PublicRouteTable
-
-  # RDS 서브넷 그룹
+  # 서브넷 그룹들
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: ASRV Database Subnet Group
+      DBSubnetGroupName: !Sub '${ProjectName}-db-subnet-group'
+      DBSubnetGroupDescription: 'RDS 서브넷 그룹'
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-      Tags:
-        - Key: Name
-          Value: ASRV-DB-SubnetGroup
 
-  # 보안 그룹
-  ApplicationSecurityGroup:
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub '${ProjectName}-cache-subnet-group'
+      Description: 'ElastiCache 서브넷 그룹'
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  # 보안 그룹들
+  ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Application Security Group
+      GroupName: !Sub '${ProjectName}-alb-sg'
+      GroupDescription: 'ALB용 보안 그룹'
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -132,144 +311,49 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: ASRV-App-SG
 
-  DatabaseSecurityGroup:
+  ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Database Security Group
+      GroupName: !Sub '${ProjectName}-ecs-sg'
+      GroupDescription: 'ECS 태스크용 보안 그룹'
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 3306
-          ToPort: 3306
-          SourceSecurityGroupId: !Ref ApplicationSecurityGroup
-      Tags:
-        - Key: Name
-          Value: ASRV-DB-SG
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
 
-  # RDS 인스턴스 (Multi-AZ)
-  RDSInstance:
-    Type: AWS::RDS::DBInstance
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      DBInstanceIdentifier: asrv-database
-      DBInstanceClass: db.t3.micro
-      Engine: mysql
-      EngineVersion: 8.0.35
-      MasterUsername: admin
-      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
-      AllocatedStorage: 20
-      StorageType: gp2
-      StorageEncrypted: true
-      VPCSecurityGroups:
-        - !Ref DatabaseSecurityGroup
-      DBSubnetGroupName: !Ref DBSubnetGroup
-      MultiAZ: true
-      BackupRetentionPeriod: 7
-      PreferredBackupWindow: "03:00-04:00"
-      PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
-      DeletionProtection: false
-      EnablePerformanceInsights: true
-      MonitoringInterval: 60
-      MonitoringRoleArn: !GetAtt RDSEnhancedMonitoringRole.Arn
-      Tags:
-        - Key: Name
-          Value: ASRV-RDS
+      GroupName: !Sub '${ProjectName}-rds-sg'
+      GroupDescription: 'RDS용 보안 그룹'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
 
-  # RDS Read Replica
-  RDSReadReplica:
-    Type: AWS::RDS::DBInstance
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      DBInstanceIdentifier: asrv-database-replica
-      DBInstanceClass: db.t3.micro
-      SourceDBInstanceIdentifier: !Ref RDSInstance
-      PubliclyAccessible: false
-      Tags:
-        - Key: Name
-          Value: ASRV-RDS-Replica
+      GroupName: !Sub '${ProjectName}-cache-sg'
+      GroupDescription: 'ElastiCache용 보안 그룹'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
 
-  # Database Secret
-  DBSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: ASRV-DB-Secret
-      Description: RDS database credentials
-      GenerateSecretString:
-        SecretStringTemplate: '{"username": "admin"}'
-        GenerateStringKey: 'password'
-        PasswordLength: 16
-        ExcludeCharacters: '"@/\'
-
-  # Application Server
-  ApplicationServer:
-    Type: AWS::EC2::Instance
-    Properties:
-      ImageId: ami-0c02fb55956c7d316
-      InstanceType: t3.micro
-      KeyName: !Ref KeyPairName
-      SubnetId: !Ref PublicSubnet1
-      SecurityGroupIds:
-        - !Ref ApplicationSecurityGroup
-      IamInstanceProfile: !Ref ApplicationInstanceProfile
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum update -y
-          yum install -y httpd mysql amazon-cloudwatch-agent
-          systemctl start httpd
-          systemctl enable httpd
-          
-          # CloudWatch Agent 설정
-          cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
-          {
-            "metrics": {
-              "namespace": "ASRV/Application",
-              "metrics_collected": {
-                "cpu": {
-                  "measurement": ["cpu_usage_idle", "cpu_usage_user", "cpu_usage_system"],
-                  "metrics_collection_interval": 60
-                },
-                "disk": {
-                  "measurement": ["used_percent"],
-                  "metrics_collection_interval": 60,
-                  "resources": ["*"]
-                },
-                "mem": {
-                  "measurement": ["mem_used_percent"],
-                  "metrics_collection_interval": 60
-                }
-              }
-            },
-            "logs": {
-              "logs_collected": {
-                "files": {
-                  "collect_list": [
-                    {
-                      "file_path": "/var/log/httpd/access_log",
-                      "log_group_name": "/asrv/httpd/access",
-                      "log_stream_name": "{instance_id}"
-                    }
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-          
-          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-            -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
-      Tags:
-        - Key: Name
-          Value: ASRV-Application-Server
-
-  # IAM Role for Application
-  ApplicationRole:
+  # IAM 역할들
+  ECSExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -277,29 +361,12 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: ec2.amazonaws.com
+              Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-      Policies:
-        - PolicyName: RDSAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - rds:DescribeDBInstances
-                  - secretsmanager:GetSecretValue
-                Resource: '*'
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
-  ApplicationInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref ApplicationRole
-
-  # RDS Enhanced Monitoring Role
-  RDSEnhancedMonitoringRole:
+  ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -307,137 +374,65 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: monitoring.rds.amazonaws.com
+              Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
 
-  # CloudWatch Log Groups
-  ApplicationLogGroup:
+  # CloudWatch 로그 그룹들
+  ApiLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /asrv/httpd/access
-      RetentionInDays: 14
+      LogGroupName: !Sub '/ecs/${ProjectName}/api'
+      RetentionInDays: 30
 
-  # CloudWatch Alarms
-  DatabaseCPUAlarm:
-    Type: AWS::CloudWatch::Alarm
+  WebLogGroup:
+    Type: AWS::Logs::LogGroup
     Properties:
-      AlarmName: ASRV-Database-HighCPU
-      AlarmDescription: Database CPU utilization is too high
-      MetricName: CPUUtilization
-      Namespace: AWS/RDS
-      Statistic: Average
-      Period: 300
-      EvaluationPeriods: 2
-      Threshold: 80
-      ComparisonOperator: GreaterThanThreshold
-      Dimensions:
-        - Name: DBInstanceIdentifier
-          Value: !Ref RDSInstance
-      AlarmActions:
-        - !Ref SNSTopic
+      LogGroupName: !Sub '/ecs/${ProjectName}/web'
+      RetentionInDays: 30
 
-  DatabaseConnectionsAlarm:
-    Type: AWS::CloudWatch::Alarm
+  # Auto Scaling
+  ApiAutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
-      AlarmName: ASRV-Database-HighConnections
-      AlarmDescription: Database connections are too high
-      MetricName: DatabaseConnections
-      Namespace: AWS/RDS
-      Statistic: Average
-      Period: 300
-      EvaluationPeriods: 2
-      Threshold: 15
-      ComparisonOperator: GreaterThanThreshold
-      Dimensions:
-        - Name: DBInstanceIdentifier
-          Value: !Ref RDSInstance
-      AlarmActions:
-        - !Ref SNSTopic
+      MaxCapacity: 10
+      MinCapacity: 2
+      ResourceId: !Sub 'service/${ECSCluster}/${ApiService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
 
-  # SNS Topic for Alerts
-  SNSTopic:
-    Type: AWS::SNS::Topic
+  ApiAutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      TopicName: ASRV-Alerts
-      DisplayName: ASRV Architecture Alerts
+      PolicyName: !Sub '${ProjectName}-api-scaling-policy'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ApiAutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 70.0
 
-  # CloudWatch Dashboard
-  Dashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: ASRV-Architecture-Dashboard
-      DashboardBody: !Sub |
-        {
-          "widgets": [
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 0,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${RDSInstance}"],
-                  [".", "DatabaseConnections", ".", "."],
-                  [".", "ReadLatency", ".", "."],
-                  [".", "WriteLatency", ".", "."]
-                ],
-                "period": 300,
-                "stat": "Average",
-                "region": "${AWS::Region}",
-                "title": "RDS Performance Metrics"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 6,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  ["ASRV/Application", "CPUUtilization", "InstanceId", "${ApplicationServer}"],
-                  [".", "MemoryUtilization", ".", "."],
-                  [".", "DiskSpaceUtilization", ".", "."]
-                ],
-                "period": 300,
-                "stat": "Average",
-                "region": "${AWS::Region}",
-                "title": "Application Server Metrics"
-              }
-            }
-          ]
-        }
+  # DB 비밀번호 파라미터
+  DBPassword:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /asrv/db/password
+    NoEcho: true
 
 Outputs:
-  VPCId:
-    Description: VPC ID
-    Value: !Ref VPC
-    Export:
-      Name: !Sub '${AWS::StackName}-VPC'
-
-  ApplicationServerIP:
-    Description: Application Server Public IP
-    Value: !GetAtt ApplicationServer.PublicIp
-    Export:
-      Name: !Sub '${AWS::StackName}-AppServerIP'
-
+  LoadBalancerDNS:
+    Description: 'Application Load Balancer DNS 이름'
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  
+  ECSClusterName:
+    Description: 'ECS 클러스터 이름'
+    Value: !Ref ECSCluster
+  
   RDSEndpoint:
-    Description: RDS Primary Endpoint
+    Description: 'RDS 엔드포인트'
     Value: !GetAtt RDSInstance.Endpoint.Address
-    Export:
-      Name: !Sub '${AWS::StackName}-RDSEndpoint'
-
-  RDSReplicaEndpoint:
-    Description: RDS Read Replica Endpoint
-    Value: !GetAtt RDSReadReplica.Endpoint.Address
-    Export:
-      Name: !Sub '${AWS::StackName}-RDSReplicaEndpoint'
-
-  DashboardURL:
-    Description: CloudWatch Dashboard URL
-    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home#dashboards:name=ASRV-Architecture-Dashboard'
-    Export:
-      Name: !Sub '${AWS::StackName}-Dashboard'
+  
+  RedisEndpoint:
+    Description: 'Redis 엔드포인트'
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address

@@ -1,85 +1,47 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ASEV - 앱 혁신가: 서버리스 API 플랫폼'
+Description: 'ASEV - 앱 혁신가 아키텍처: 서버리스 API 플랫폼'
 
 Parameters:
-  ApiName:
+  Environment:
     Type: String
-    Default: ASEV-ServerlessAPI
-    Description: API Gateway 이름
+    Default: dev
+    AllowedValues: [dev, staging, prod]
 
 Resources:
-  # DynamoDB 테이블
+  # DynamoDB Table
   UserTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${ApiName}-Users'
+      TableName: !Sub '${Environment}-asev-users'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
+        - AttributeName: email
+          AttributeType: S
       KeySchema:
         - AttributeName: userId
           KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Name
-          Value: ASEV-UserTable
+          Value: !Sub '${Environment}-asev-users-table'
 
-  # S3 버킷 (파일 저장용)
-  DataBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub 'asev-data-${AWS::AccountId}-${AWS::Region}'
-      VersioningConfiguration:
-        Status: Enabled
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-
-  # Cognito User Pool
-  UserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UserPoolName: !Sub '${ApiName}-UserPool'
-      AutoVerifiedAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireUppercase: true
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: false
-      Schema:
-        - Name: email
-          AttributeDataType: String
-          Required: true
-          Mutable: true
-
-  UserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      UserPoolId: !Ref UserPool
-      ClientName: !Sub '${ApiName}-Client'
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ADMIN_NO_SRP_AUTH
-        - USER_PASSWORD_AUTH
-
-  # Lambda 실행 역할
+  # IAM Role for Lambda
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ApiName}-LambdaRole'
+      RoleName: !Sub '${Environment}-asev-lambda-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -102,259 +64,237 @@ Resources:
                   - dynamodb:DeleteItem
                   - dynamodb:Query
                   - dynamodb:Scan
-                Resource: !GetAtt UserTable.Arn
-        - PolicyName: S3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource: !Sub '${DataBucket}/*'
-        - PolicyName: SQSSNSAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                  - sns:Publish
                 Resource:
-                  - !Ref NotificationQueue
-                  - !Ref NotificationTopic
+                  - !GetAtt UserTable.Arn
+                  - !Sub '${UserTable.Arn}/index/*'
 
-  # Lambda 함수들
+  # Lambda Functions
   AuthFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${ApiName}-AuthFunction'
-      Runtime: python3.9
-      Handler: index.lambda_handler
+      FunctionName: !Sub '${Environment}-asev-auth'
+      Runtime: nodejs20.x
+      Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref UserTable
+          ENVIRONMENT: !Ref Environment
       Code:
         ZipFile: |
-          import json
-          import boto3
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
           
-          def lambda_handler(event, context):
-              # 인증 로직 구현
-              print(f"Auth request: {json.dumps(event)}")
+          exports.handler = async (event) => {
+            console.log('인증 요청:', JSON.stringify(event, null, 2));
+            
+            try {
+              const { email, password } = JSON.parse(event.body || '{}');
+              
+              if (!email || !password) {
+                return {
+                  statusCode: 400,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                  },
+                  body: JSON.stringify({ error: '이메일과 비밀번호가 필요합니다.' })
+                };
+              }
+              
+              // 간단한 인증 로직 (실제 환경에서는 보안 강화 필요)
+              const params = {
+                TableName: process.env.TABLE_NAME,
+                IndexName: 'email-index',
+                KeyConditionExpression: 'email = :email',
+                ExpressionAttributeValues: {
+                  ':email': email
+                }
+              };
+              
+              const result = await dynamodb.query(params).promise();
               
               return {
-                  'statusCode': 200,
-                  'headers': {
-                      'Access-Control-Allow-Origin': '*',
-                      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-                      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+                statusCode: 200,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({
+                  success: true,
+                  message: '인증 성공',
+                  userExists: result.Items.length > 0
+                })
+              };
+              
+            } catch (error) {
+              console.error('인증 오류:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ error: '서버 오류가 발생했습니다.' })
+              };
+            }
+          };
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-asev-api'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref UserTable
+          ENVIRONMENT: !Ref Environment
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          const { v4: uuidv4 } = require('uuid');
+          
+          exports.handler = async (event) => {
+            console.log('API 요청:', JSON.stringify(event, null, 2));
+            
+            try {
+              const method = event.httpMethod;
+              const path = event.path;
+              
+              if (method === 'GET' && path === '/users') {
+                // 사용자 목록 조회
+                const params = {
+                  TableName: process.env.TABLE_NAME,
+                  Limit: 10
+                };
+                
+                const result = await dynamodb.scan(params).promise();
+                
+                return {
+                  statusCode: 200,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
                   },
-                  'body': json.dumps({
-                      'message': 'Authentication successful',
-                      'userId': 'user123'
+                  body: JSON.stringify({
+                    users: result.Items,
+                    count: result.Count
                   })
+                };
               }
-      Environment:
-        Variables:
-          USER_POOL_ID: !Ref UserPool
-          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+              
+              if (method === 'POST' && path === '/users') {
+                // 새 사용자 생성
+                const { name, email } = JSON.parse(event.body || '{}');
+                
+                const params = {
+                  TableName: process.env.TABLE_NAME,
+                  Item: {
+                    userId: uuidv4(),
+                    name,
+                    email,
+                    createdAt: new Date().toISOString()
+                  }
+                };
+                
+                await dynamodb.put(params).promise();
+                
+                return {
+                  statusCode: 201,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                  },
+                  body: JSON.stringify({
+                    success: true,
+                    message: '사용자가 생성되었습니다.',
+                    user: params.Item
+                  })
+                };
+              }
+              
+              return {
+                statusCode: 404,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ error: '경로를 찾을 수 없습니다.' })
+              };
+              
+            } catch (error) {
+              console.error('API 오류:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ error: '서버 오류가 발생했습니다.' })
+              };
+            }
+          };
 
-  APIFunction:
+  DataProcessingFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${ApiName}-APIFunction'
-      Runtime: python3.9
-      Handler: index.lambda_handler
+      FunctionName: !Sub '${Environment}-asev-data-processing'
+      Runtime: nodejs20.x
+      Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
-      Code:
-        ZipFile: |
-          import json
-          import boto3
-          import uuid
-          from datetime import datetime
-          
-          dynamodb = boto3.resource('dynamodb')
-          s3 = boto3.client('s3')
-          sqs = boto3.client('sqs')
-          
-          def lambda_handler(event, context):
-              print(f"API request: {json.dumps(event)}")
-              
-              method = event.get('httpMethod', 'GET')
-              path = event.get('path', '/')
-              
-              if method == 'POST' and path == '/users':
-                  return create_user(event)
-              elif method == 'GET' and path.startswith('/users/'):
-                  return get_user(event)
-              else:
-                  return {
-                      'statusCode': 404,
-                      'headers': {
-                          'Access-Control-Allow-Origin': '*'
-                      },
-                      'body': json.dumps({'error': 'Not found'})
-                  }
-          
-          def create_user(event):
-              try:
-                  body = json.loads(event.get('body', '{}'))
-                  user_id = str(uuid.uuid4())
-                  
-                  table = dynamodb.Table(os.environ['USER_TABLE'])
-                  table.put_item(
-                      Item={
-                          'userId': user_id,
-                          'name': body.get('name', ''),
-                          'email': body.get('email', ''),
-                          'createdAt': datetime.utcnow().isoformat()
-                      }
-                  )
-                  
-                  # SQS로 메시지 전송
-                  sqs.send_message(
-                      QueueUrl=os.environ['QUEUE_URL'],
-                      MessageBody=json.dumps({
-                          'action': 'user_created',
-                          'userId': user_id
-                      })
-                  )
-                  
-                  return {
-                      'statusCode': 201,
-                      'headers': {
-                          'Access-Control-Allow-Origin': '*'
-                      },
-                      'body': json.dumps({
-                          'userId': user_id,
-                          'message': 'User created successfully'
-                      })
-                  }
-              except Exception as e:
-                  return {
-                      'statusCode': 500,
-                      'headers': {
-                          'Access-Control-Allow-Origin': '*'
-                      },
-                      'body': json.dumps({'error': str(e)})
-                  }
-          
-          def get_user(event):
-              try:
-                  user_id = event['pathParameters']['userId']
-                  
-                  table = dynamodb.Table(os.environ['USER_TABLE'])
-                  response = table.get_item(Key={'userId': user_id})
-                  
-                  if 'Item' in response:
-                      return {
-                          'statusCode': 200,
-                          'headers': {
-                              'Access-Control-Allow-Origin': '*'
-                          },
-                          'body': json.dumps(response['Item'])
-                      }
-                  else:
-                      return {
-                          'statusCode': 404,
-                          'headers': {
-                              'Access-Control-Allow-Origin': '*'
-                          },
-                          'body': json.dumps({'error': 'User not found'})
-                      }
-              except Exception as e:
-                  return {
-                      'statusCode': 500,
-                      'headers': {
-                          'Access-Control-Allow-Origin': '*'
-                      },
-                      'body': json.dumps({'error': str(e)})
-                  }
+      Timeout: 60
+      MemorySize: 512
       Environment:
         Variables:
-          USER_TABLE: !Ref UserTable
-          DATA_BUCKET: !Ref DataBucket
-          QUEUE_URL: !Ref NotificationQueue
-
-  ProcessFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${ApiName}-ProcessFunction'
-      Runtime: python3.9
-      Handler: index.lambda_handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+          TABLE_NAME: !Ref UserTable
+          ENVIRONMENT: !Ref Environment
       Code:
         ZipFile: |
-          import json
-          import boto3
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
           
-          sns = boto3.client('sns')
-          
-          def lambda_handler(event, context):
-              print(f"Process request: {json.dumps(event)}")
-              
-              for record in event.get('Records', []):
-                  body = json.loads(record['body'])
+          exports.handler = async (event) => {
+            console.log('데이터 처리 요청:', JSON.stringify(event, null, 2));
+            
+            try {
+              // DynamoDB Streams에서 트리거된 이벤트 처리
+              for (const record of event.Records || []) {
+                if (record.eventName === 'INSERT') {
+                  const newUser = record.dynamodb.NewImage;
+                  console.log('새 사용자 등록:', newUser);
                   
-                  # SNS로 알림 전송
-                  sns.publish(
-                      TopicArn=os.environ['TOPIC_ARN'],
-                      Message=json.dumps({
-                          'action': body.get('action'),
-                          'userId': body.get('userId'),
-                          'timestamp': record.get('timestamp')
-                      }),
-                      Subject='ASEV API Notification'
-                  )
+                  // 여기서 추가 데이터 처리 로직 구현
+                  // 예: 이메일 발송, 분석 데이터 생성 등
+                }
+              }
               
-              return {'statusCode': 200}
-      Environment:
-        Variables:
-          TOPIC_ARN: !Ref NotificationTopic
-
-  # SQS Queue
-  NotificationQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub '${ApiName}-NotificationQueue'
-      VisibilityTimeoutSeconds: 60
-      MessageRetentionPeriod: 1209600  # 14 days
-
-  # SQS Event Source Mapping
-  QueueEventSourceMapping:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      EventSourceArn: !GetAtt NotificationQueue.Arn
-      FunctionName: !Ref ProcessFunction
-      BatchSize: 10
-
-  # SNS Topic
-  NotificationTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub '${ApiName}-Notifications'
-      DisplayName: ASEV API Notifications
+              return {
+                statusCode: 200,
+                body: JSON.stringify({ message: '데이터 처리 완료' })
+              };
+              
+            } catch (error) {
+              console.error('데이터 처리 오류:', error);
+              throw error;
+            }
+          };
 
   # API Gateway
   RestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Ref ApiName
-      Description: ASEV 서버리스 API
+      Name: !Sub '${Environment}-asev-api'
+      Description: ASEV 앱 혁신가 RESTful API
       EndpointConfiguration:
         Types:
           - REGIONAL
-
-  # API Gateway Authorizer
-  CognitoAuthorizer:
-    Type: AWS::ApiGateway::Authorizer
-    Properties:
-      Name: CognitoAuthorizer
-      Type: COGNITO_USER_POOLS
-      IdentitySource: method.request.header.Authorization
-      RestApiId: !Ref RestApi
-      ProviderARNs:
-        - !GetAtt UserPool.Arn
 
   # API Gateway Resources
   UsersResource:
@@ -364,39 +304,60 @@ Resources:
       ParentId: !GetAtt RestApi.RootResourceId
       PathPart: users
 
-  UserResource:
+  AuthResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref RestApi
-      ParentId: !Ref UsersResource
-      PathPart: '{userId}'
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: auth
 
   # API Gateway Methods
+  UsersGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   UsersPostMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestApi
       ResourceId: !Ref UsersResource
       HttpMethod: POST
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
+      AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIFunction.Arn}/invocations'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
-  UserGetMethod:
+  AuthPostMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestApi
-      ResourceId: !Ref UserResource
-      HttpMethod: GET
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
+      ResourceId: !Ref AuthResource
+      HttpMethod: POST
+      AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIFunction.Arn}/invocations'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthFunction.Arn}/invocations'
+
+  # API Gateway Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - UsersGetMethod
+      - UsersPostMethod
+      - AuthPostMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      StageName: !Ref Environment
 
   # Lambda Permissions
   AuthFunctionPermission:
@@ -407,51 +368,44 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*'
 
-  APIFunctionPermission:
+  ApiFunctionPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref APIFunction
+      FunctionName: !Ref ApiFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*'
 
-  # API Gateway Deployment
-  ApiDeployment:
-    Type: AWS::ApiGateway::Deployment
-    DependsOn:
-      - UsersPostMethod
-      - UserGetMethod
+  # DynamoDB Stream Event Source Mapping
+  DataProcessingEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
     Properties:
-      RestApiId: !Ref RestApi
-      StageName: prod
+      EventSourceArn: !GetAtt UserTable.StreamArn
+      FunctionName: !Ref DataProcessingFunction
+      StartingPosition: LATEST
+      MaximumBatchingWindowInSeconds: 5
 
 Outputs:
-  ApiEndpoint:
-    Description: API Gateway endpoint URL
-    Value: !Sub 'https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  ApiGatewayUrl:
+    Description: API Gateway URL
+    Value: !Sub 'https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
     Export:
-      Name: !Sub '${AWS::StackName}-ApiEndpoint'
+      Name: !Sub '${AWS::StackName}-ApiGatewayUrl'
 
-  UserPoolId:
-    Description: Cognito User Pool ID
-    Value: !Ref UserPool
-    Export:
-      Name: !Sub '${AWS::StackName}-UserPoolId'
-
-  UserPoolClientId:
-    Description: Cognito User Pool Client ID
-    Value: !Ref UserPoolClient
-    Export:
-      Name: !Sub '${AWS::StackName}-UserPoolClientId'
-
-  DynamoDBTable:
+  DynamoDBTableName:
     Description: DynamoDB Table Name
     Value: !Ref UserTable
     Export:
-      Name: !Sub '${AWS::StackName}-UserTable'
+      Name: !Sub '${AWS::StackName}-DynamoDBTableName'
 
-  S3Bucket:
-    Description: S3 Data Bucket
-    Value: !Ref DataBucket
+  AuthFunctionArn:
+    Description: Auth Lambda Function ARN
+    Value: !GetAtt AuthFunction.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-DataBucket'
+      Name: !Sub '${AWS::StackName}-AuthFunctionArn'
+
+  ApiFunctionArn:
+    Description: API Lambda Function ARN
+    Value: !GetAtt ApiFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiFunctionArn'

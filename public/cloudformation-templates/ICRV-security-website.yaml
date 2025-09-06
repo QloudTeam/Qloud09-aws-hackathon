@@ -1,31 +1,84 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ICRV - 보안 수호자: 보안 강화 웹사이트'
+Description: 'ICRV - 보안 수호자 아키텍처: 보안 중심 정적 웹사이트'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  
+  DomainName:
+    Type: String
+    Default: ''
+    Description: 사용자 정의 도메인 (선택사항)
 
 Resources:
-  S3Bucket:
+  # S3 Bucket for Website (암호화)
+  WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'icrv-secure-${AWS::AccountId}'
+      BucketName: !Sub '${Environment}-icrv-website-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
       PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
 
-  CloudFrontOAI:
-    Type: AWS::CloudFront::OriginAccessIdentity
+  # S3 Bucket for Access Logs
+  LogsBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      OriginAccessIdentityConfig:
-        Comment: ICRV OAI
+      BucketName: !Sub '${Environment}-icrv-logs-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
 
+  # S3 Bucket Policy for Website
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${Environment}-icrv-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # WAF Web ACL
   WebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
-      Name: ICRV-WebACL
+      Name: !Sub '${Environment}-icrv-waf'
       Scope: CLOUDFRONT
       DefaultAction:
         Allow: {}
@@ -41,65 +94,149 @@ Resources:
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: CommonRuleSet
+            MetricName: CommonRuleSetMetric
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputsMetric
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${Environment}-icrv-waf'
 
+  # CloudFront Distribution
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Origins:
           - Id: S3Origin
-            DomainName: !GetAtt S3Bucket.RegionalDomainName
+            DomainName: !GetAtt WebsiteBucket.RegionalDomainName
             S3OriginConfig:
-              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOAI}'
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !Ref OriginAccessControl
+        Enabled: true
+        DefaultRootObject: index.html
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods: [GET, HEAD]
-          CachedMethods: [GET, HEAD]
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
           ForwardedValues:
             QueryString: false
-        Enabled: true
+            Cookies:
+              Forward: none
+          Compress: true
+          MinTTL: 0
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+        PriceClass: PriceClass_100
         WebACLId: !GetAtt WebACL.Arn
+        Logging:
+          Bucket: !GetAtt LogsBucket.DomainName
+          IncludeCookies: false
+          Prefix: cloudfront-logs/
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
 
+  # KMS Key for encryption
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS Key for ICRV security encryption
+      KeyPolicy:
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  KMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${Environment}-icrv-key'
+      TargetKeyId: !Ref KMSKey
+
+  # CloudTrail for API auditing
   CloudTrail:
     Type: AWS::CloudTrail::Trail
     Properties:
-      TrailName: ICRV-CloudTrail
-      S3BucketName: !Ref LoggingBucket
+      TrailName: !Sub '${Environment}-icrv-trail'
+      S3BucketName: !Ref LogsBucket
+      S3KeyPrefix: cloudtrail-logs/
       IncludeGlobalServiceEvents: true
       IsMultiRegionTrail: true
       EnableLogFileValidation: true
+      KMSKeyId: !Ref KMSKey
 
-  LoggingBucket:
-    Type: AWS::S3::Bucket
+  # GuardDuty Detector
+  GuardDutyDetector:
+    Type: AWS::GuardDuty::Detector
     Properties:
-      BucketName: !Sub 'icrv-logs-${AWS::AccountId}'
+      Enable: true
+      FindingPublishingFrequency: FIFTEEN_MINUTES
 
-  ConfigurationRecorder:
-    Type: AWS::Config::ConfigurationRecorder
+  # CloudWatch Log Group
+  SecurityLogGroup:
+    Type: AWS::Logs::LogGroup
     Properties:
-      Name: ICRV-ConfigRecorder
-      RoleARN: !GetAtt ConfigRole.Arn
-      RecordingGroup:
-        AllSupported: true
-        IncludeGlobalResourceTypes: true
+      LogGroupName: !Sub '/aws/security/${Environment}-icrv'
+      RetentionInDays: 30
+      KmsKeyId: !GetAtt KMSKey.Arn
 
-  ConfigRole:
-    Type: AWS::IAM::Role
+  # CloudWatch Alarms
+  WAFBlockedRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
     Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: config.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/ConfigRole
+      AlarmName: !Sub '${Environment}-icrv-waf-blocked-requests'
+      AlarmDescription: High number of blocked requests by WAF
+      MetricName: BlockedRequests
+      Namespace: AWS/WAFV2
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: WebACL
+          Value: !Sub '${Environment}-icrv-waf'
 
 Outputs:
-  CloudFrontURL:
+  WebsiteURL:
+    Description: CloudFront Distribution URL
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
-  WebACLArn:
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'
+
+  S3BucketName:
+    Description: S3 Website Bucket Name
+    Value: !Ref WebsiteBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BucketName'
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDistributionId'
+
+  WAFWebACLArn:
+    Description: WAF Web ACL ARN
     Value: !GetAtt WebACL.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WAFWebACLArn'

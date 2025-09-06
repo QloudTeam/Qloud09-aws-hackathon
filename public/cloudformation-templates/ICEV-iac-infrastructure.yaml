@@ -1,31 +1,39 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ICEV - 코드 마법사: IaC 기반 인프라'
+Description: 'ICEV - 코드 마법사 아키텍처: Infrastructure as Code 중심 인프라'
 
 Parameters:
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 인스턴스용 키페어
+  
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
 
 Resources:
+  # Custom VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
       EnableDnsHostnames: true
-      Tags: [{Key: Name, Value: ICEV-VPC}]
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-vpc'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
 
-  PublicSubnet:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
-      MapPublicIpOnLaunch: true
-      Tags: [{Key: Name, Value: ICEV-Public}]
-
+  # Internet Gateway
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
-      Tags: [{Key: Name, Value: ICEV-IGW}]
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-igw'
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -33,76 +41,382 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  RouteTable:
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-public-subnet'
+        - Key: Type
+          Value: Public
+
+  # Private Subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-private-subnet'
+        - Key: Type
+          Value: Private
+
+  # NAT Gateway for Private Subnet
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-nat-gateway'
+
+  # Route Tables
+  PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
-      Tags: [{Key: Name, Value: ICEV-RT}]
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-public-rt'
 
-  Route:
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-private-rt'
+
+  PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
-      RouteTableId: !Ref RouteTable
+      RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  SubnetRouteTableAssociation:
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  PublicSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnet
-      RouteTableId: !Ref RouteTable
+      RouteTableId: !Ref PublicRouteTable
 
-  SecurityGroup:
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Groups
+  WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ICEV Security Group
+      GroupName: !Sub '${Environment}-icev-web-sg'
+      GroupDescription: Security group for web servers
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/16
+          Description: SSH from VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-web-sg'
 
-  EC2Instance:
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Environment}-icev-app-sg'
+      GroupDescription: Security group for application servers
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+          Description: App port from web servers
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/16
+          Description: SSH from VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-app-sg'
+
+  # IAM Role for EC2 instances
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-icev-ec2-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: CloudFormationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackResources
+                Resource: '*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${Environment}-icev-instance-profile'
+      Roles:
+        - !Ref EC2Role
+
+  # Web Server (Public Subnet)
+  WebServer:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-0c02fb55956c7d316
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2
       InstanceType: t3.micro
       KeyName: !Ref KeyPairName
       SubnetId: !Ref PublicSubnet
-      SecurityGroupIds: [!Ref SecurityGroup]
+      SecurityGroupIds:
+        - !Ref WebSecurityGroup
+      IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           yum update -y
-          yum install -y git aws-cli
-          echo "ICEV Infrastructure as Code Demo" > /var/www/html/index.html
+          yum install -y httpd git
+          systemctl start httpd
+          systemctl enable httpd
+          
+          # CloudFormation 헬퍼 스크립트 설치
+          yum install -y aws-cfn-bootstrap
+          
+          # 웹 페이지 생성
+          cat > /var/www/html/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>ICEV - 코드 마법사</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+                  .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                  h1 { color: #232F3E; }
+                  .status { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🌟 ICEV - 코드 마법사 아키텍처</h1>
+                  <div class="status">
+                      <strong>✅ Infrastructure as Code 배포 완료!</strong>
+                  </div>
+                  <p>이 인프라는 CloudFormation을 통해 자동으로 구성되었습니다.</p>
+                  <ul>
+                      <li>Custom VPC 네트워크</li>
+                      <li>Public/Private 서브넷 분리</li>
+                      <li>NAT Gateway를 통한 안전한 아웃바운드 연결</li>
+                      <li>자동화된 보안 그룹 설정</li>
+                      <li>CloudWatch 모니터링</li>
+                  </ul>
+              </div>
+          </body>
+          </html>
+          EOF
+          
+          # CloudWatch Agent 설치 및 설정
+          yum install -y amazon-cloudwatch-agent
+          
+          # 성공 신호 전송
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource WebServer --region ${AWS::Region}
       Tags:
         - Key: Name
-          Value: ICEV-Instance
-        - Key: Environment
-          Value: Development
-        - Key: ManagedBy
-          Value: CloudFormation
+          Value: !Sub '${Environment}-icev-web-server'
+        - Key: Type
+          Value: WebServer
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
 
-  S3Bucket:
-    Type: AWS::S3::Bucket
+  # Application Server (Private Subnet)
+  AppServer:
+    Type: AWS::EC2::Instance
     Properties:
-      BucketName: !Sub 'icev-templates-${AWS::AccountId}'
-      VersioningConfiguration:
-        Status: Enabled
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2
+      InstanceType: t3.micro
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PrivateSubnet
+      SecurityGroupIds:
+        - !Ref AppSecurityGroup
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y nodejs npm
+          
+          # 간단한 Node.js 앱 생성
+          mkdir -p /opt/app
+          cd /opt/app
+          
+          cat > package.json << 'EOF'
+          {
+            "name": "icev-app",
+            "version": "1.0.0",
+            "main": "app.js",
+            "dependencies": {
+              "express": "^4.18.0"
+            }
+          }
+          EOF
+          
+          cat > app.js << 'EOF'
+          const express = require('express');
+          const app = express();
+          const port = 8080;
+          
+          app.get('/', (req, res) => {
+            res.json({
+              message: 'ICEV - 코드 마법사 애플리케이션 서버',
+              timestamp: new Date().toISOString(),
+              environment: process.env.NODE_ENV || 'development'
+            });
+          });
+          
+          app.listen(port, () => {
+            console.log(`App server listening on port ${port}`);
+          });
+          EOF
+          
+          npm install
+          node app.js &
+          
+          # CloudWatch Agent 설치
+          yum install -y amazon-cloudwatch-agent
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-icev-app-server'
+        - Key: Type
+          Value: AppServer
+
+  # CloudWatch Log Groups
+  WebServerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/ec2/${Environment}-icev-web'
+      RetentionInDays: 14
+
+  AppServerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/ec2/${Environment}-icev-app'
+      RetentionInDays: 14
+
+  # CloudWatch Alarms
+  WebServerCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-icev-web-high-cpu'
+      AlarmDescription: Web server high CPU utilization
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref WebServer
+
+  AppServerCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-icev-app-high-cpu'
+      AlarmDescription: App server high CPU utilization
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppServer
 
 Outputs:
   VPCId:
+    Description: VPC ID
     Value: !Ref VPC
     Export:
-      Name: !Sub '${AWS::StackName}-VPC'
-  InstanceId:
-    Value: !Ref EC2Instance
-  S3Bucket:
-    Value: !Ref S3Bucket
+      Name: !Sub '${AWS::StackName}-VPCId'
+
+  PublicSubnetId:
+    Description: Public Subnet ID
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicSubnetId'
+
+  PrivateSubnetId:
+    Description: Private Subnet ID
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateSubnetId'
+
+  WebServerPublicIP:
+    Description: Web Server Public IP
+    Value: !GetAtt WebServer.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-WebServerPublicIP'
+
+  AppServerPrivateIP:
+    Description: App Server Private IP
+    Value: !GetAtt AppServer.PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-AppServerPrivateIP'
+
+  WebsiteURL:
+    Description: Website URL
+    Value: !Sub 'http://${WebServer.PublicIp}'
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'
