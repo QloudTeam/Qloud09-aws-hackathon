@@ -2,25 +2,25 @@
   "questions": [
     {
       "id": 1,
-      "question": "새로운 프로젝트를 시작할 때 어떤 것부터 하나요?",
+      "question": "새로운 클라우드 프로젝트를 시작할 때 어떤 접근 방식을 선호하시나요?",
       "options": [
-        { "text": "튼튼한 기초와 틀부터 만든다", "trait": "infra_focused" },
-        { "text": "무엇을 만들지 아이디어부터 정한다", "trait": "app_focused" }
+        { "text": "인프라 구조와 네트워크부터 설계한다", "trait": "infra_focused" },
+        { "text": "애플리케이션 요구사항부터 분석한다", "trait": "app_focused" }
       ]
     },
     {
       "id": 2,
-      "question": "집을 짓는다면 어떤 방식을 선호하나요?",
+      "question": "시스템 설계 시 가장 중요하게 생각하는 요소는?",
       "options": [
-        { "text": "전문가에게 맡기고 편리하게 이용한다", "trait": "service_oriented" },
-        { "text": "직접 설계하고 세세하게 조절한다", "trait": "control_focused" }
+        { "text": "관리형 서비스 활용과 운영 편의성", "trait": "service_oriented" },
+        { "text": "세밀한 제어와 커스터마이징 가능성", "trait": "control_focused" }
       ]
     },
     {
       "id": 3,
-      "question": "온라인 게임 서버를 운영한다면 어떤 방식을 선호하나요?",
+      "question": "온라인 서버를 운영한다면 어떤 방식을 선호하나요?",
       "options": [
-        { "text": "플레이어가 많아지면 자동으로 서버를 늘리기", "trait": "elastic" },
+        { "text": "유저 많아지면 자동으로 서버를 늘리기", "trait": "elastic" },
         { "text": "미리 충분한 서버를 준비해서 안정적으로 운영", "trait": "reliable" }
       ]
     },
@@ -66,10 +66,10 @@
     },
     {
       "id": 9,
-      "question": "집을 새로 꾸민다면 어떤 것부터 시작하나요?",
+      "question": "클라우드 마이그레이션 전략은?",
       "options": [
-        { "text": "전기, 인터넷 등 기본 시설부터", "trait": "infra_focused" },
-        { "text": "방 배치, 인테리어, 생활 동선 등의 부분부터", "trait": "app_focused" }
+        { "text": "VPC와 네트워크 설계 중심 접근", "trait": "infra_focused" },
+        { "text": "애플리케이션 현대화 중심 접근", "trait": "app_focused" }
       ]
     },
     {

@@ -394,19 +394,30 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
                     <h4>🚀 지금 만나요!</h4>
                     <div className="match-cards">
                       {compatibleUsers.bestMatches.length > 0 ? (
-                        compatibleUsers.bestMatches.map((user, index) => {
-                          const matchInfo = cbtiCompatibility[type].bestMatches.find(m => m.type === user.cbtiType);
-                          return (
-                            <div key={index} className="match-card best-match">
-                              <div className="match-header">
-                                <span className="match-type">{user.cbtiType}</span>
-                                <span className="match-name">{matchInfo?.name || ''}</span>
-                                <span className="user-nickname">👤 {user.nickname}</span>
+                        (() => {
+                          // 같은 CBTI 유형별로 그룹화
+                          const groupedUsers = compatibleUsers.bestMatches.reduce((acc, user) => {
+                            if (!acc[user.cbtiType]) {
+                              acc[user.cbtiType] = [];
+                            }
+                            acc[user.cbtiType].push(user);
+                            return acc;
+                          }, {} as Record<string, typeof compatibleUsers.bestMatches>);
+
+                          return Object.entries(groupedUsers).map(([cbtiType, users]) => {
+                            const matchInfo = cbtiCompatibility[type].bestMatches.find(m => m.type === cbtiType);
+                            return (
+                              <div key={cbtiType} className="match-card best-match">
+                                <div className="match-header">
+                                  <span className="match-type">{cbtiType}</span>
+                                  <span className="match-name">{matchInfo?.name || ''}</span>
+                                  <span className="user-nickname">👤 {users.map(u => u.nickname).join(' ')}</span>
+                                </div>
+                                <p className="match-reason">{matchInfo?.reason || ''}</p>
                               </div>
-                              <p className="match-reason">{matchInfo?.reason || ''}</p>
-                            </div>
-                          );
-                        })
+                            );
+                          });
+                        })()
                       ) : (
                         <div className="no-users">
                           <p>아직 매칭되는 사용자가 없습니다. 더 많은 사람들이 참여하면 매칭될 수 있어요!</p>
@@ -419,19 +430,30 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
                     <h4>⚠️ 언젠가 만나요!</h4>
                     <div className="match-cards">
                       {compatibleUsers.worstMatches.length > 0 ? (
-                        compatibleUsers.worstMatches.map((user, index) => {
-                          const matchInfo = cbtiCompatibility[type].worstMatches.find(m => m.type === user.cbtiType);
-                          return (
-                            <div key={index} className="match-card worst-match">
-                              <div className="match-header">
-                                <span className="match-type">{user.cbtiType}</span>
-                                <span className="match-name">{matchInfo?.name || ''}</span>
-                                <span className="user-nickname">👤 {user.nickname}</span>
+                        (() => {
+                          // 같은 CBTI 유형별로 그룹화
+                          const groupedUsers = compatibleUsers.worstMatches.reduce((acc, user) => {
+                            if (!acc[user.cbtiType]) {
+                              acc[user.cbtiType] = [];
+                            }
+                            acc[user.cbtiType].push(user);
+                            return acc;
+                          }, {} as Record<string, typeof compatibleUsers.worstMatches>);
+
+                          return Object.entries(groupedUsers).map(([cbtiType, users]) => {
+                            const matchInfo = cbtiCompatibility[type].worstMatches.find(m => m.type === cbtiType);
+                            return (
+                              <div key={cbtiType} className="match-card worst-match">
+                                <div className="match-header">
+                                  <span className="match-type">{cbtiType}</span>
+                                  <span className="match-name">{matchInfo?.name || ''}</span>
+                                  <span className="user-nickname">👤 {users.map(u => u.nickname).join(' ')}</span>
+                                </div>
+                                <p className="match-reason">{matchInfo?.reason || ''}</p>
                               </div>
-                              <p className="match-reason">{matchInfo?.reason || ''}</p>
-                            </div>
-                          );
-                        })
+                            );
+                          });
+                        })()
                       ) : (
                         <div className="no-users">
                           <p>아직 매칭되는 사용자가 없습니다.</p>

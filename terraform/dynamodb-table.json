@@ -1,0 +1,42 @@
+{
+  "TableName": "cbti-users",
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "nickname",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "cbtiType",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "createdAt",
+      "AttributeType": "S"
+    }
+  ],
+  "KeySchema": [
+    {
+      "AttributeName": "nickname",
+      "KeyType": "HASH"
+    }
+  ],
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "cbtiType-createdAt-index",
+      "KeySchema": [
+        {
+          "AttributeName": "cbtiType",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "createdAt",
+          "KeyType": "RANGE"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "ALL"
+      }
+    }
+  ],
+  "BillingMode": "PAY_PER_REQUEST"
+}

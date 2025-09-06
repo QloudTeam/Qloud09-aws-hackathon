@@ -146,7 +146,7 @@ const downloadResultImage = async () => {
 
 **리포트 구성**:
 - 유형별 강점과 특성 분석
-- 추천 AWS 서비스 
+- 추천 AWS 서비스
 
 **예시 - ISEV (클라우드 탐험가)**:
 ```

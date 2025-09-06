@@ -39,6 +39,15 @@ module "parameter_store" {
   tags                  = local.common_tags
 }
 
+# DynamoDB
+module "dynamodb" {
+  source = "./modules/dynamodb"
+  
+  project_name = var.project_name
+  environment  = var.environment
+  tags         = local.common_tags
+}
+
 # Elastic Beanstalk
 module "elastic_beanstalk" {
   source = "./modules/elastic-beanstalk"

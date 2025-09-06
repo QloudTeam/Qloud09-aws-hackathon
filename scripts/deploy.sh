@@ -34,7 +34,7 @@ cd $TERRAFORM_DIR
 
 # Terraform 초기화
 echo "🏗️  Terraform 초기화 중..."
-terraform init
+terraform init -upgrade
 
 # Terraform 계획
 echo "📊 배포 계획 확인 중..."

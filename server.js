@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
-const { DynamoDBClient, PutItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, PutItemCommand, QueryCommand, ScanCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const app = express();
 const port = process.env.PORT || 3000;
@@ -101,6 +101,34 @@ app.post('/api/cbti-result', async (req, res) => {
   }
 });
 
+// DynamoDB 테스트 API
+app.get('/api/test-dynamodb', async (req, res) => {
+  try {
+    const accessKeyId = await getParameter('/qloud/aws/access-key-id');
+    const secretAccessKey = await getParameter('/qloud/aws/secret-access-key');
+    const region = await getParameter('/qloud/aws/region');
+    
+    const dynamoClient = new DynamoDBClient({
+      region,
+      credentials: { accessKeyId, secretAccessKey }
+    });
+
+    // 간단한 스캔 테스트
+    const command = new ScanCommand({
+      TableName: 'cbti-users',
+      Limit: 5
+    });
+
+    const response = await dynamoClient.send(command);
+    const items = response.Items?.map(item => unmarshall(item)) || [];
+    
+    res.json({ success: true, items, count: items.length });
+  } catch (error) {
+    console.error('DynamoDB test error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // 호환 사용자 조회 API
 app.post('/api/cbti-matches', async (req, res) => {
   try {
@@ -132,12 +160,18 @@ app.post('/api/cbti-matches', async (req, res) => {
           });
           
           const response = await dynamoClient.send(command);
-          const items = response.Items?.map(item => unmarshall(item)) || [];
+          console.log(`Query response for ${cbtiType}:`, response);
+          const items = response.Items?.map(item => {
+            const unmarshalled = unmarshall(item);
+            console.log(`Unmarshalled item:`, unmarshalled);
+            return unmarshalled;
+          }) || [];
           results.push(...items);
         } catch (error) {
           console.error(`Error querying ${cbtiType}:`, error);
         }
       }
+      console.log('Best matches results:', results);
       return results.slice(0, 5); // 최대 5명
     };
 
@@ -157,13 +191,19 @@ app.post('/api/cbti-matches', async (req, res) => {
           });
           
           const response = await dynamoClient.send(command);
-          const items = response.Items?.map(item => unmarshall(item)) || [];
+          console.log(`Query response for ${cbtiType}:`, response);
+          const items = response.Items?.map(item => {
+            const unmarshalled = unmarshall(item);
+            console.log(`Unmarshalled item:`, unmarshalled);
+            return unmarshalled;
+          }) || [];
           results.push(...items);
         } catch (error) {
           console.error(`Error querying ${cbtiType}:`, error);
         }
       }
-      return results.slice(0, 5); // 최대 5명
+      console.log('Worst matches results:', results);
+      return results.slice(0, 5); // 최늄 5명
     };
 
     const [bestMatches, worstMatches] = await Promise.all([
