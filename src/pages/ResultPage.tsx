@@ -8,6 +8,7 @@ import LocalTestNotice from '../components/LocalTestNotice';
 import { handleSlackIntegration } from '../utils/slackIntegration';
 import { generateArchitecture } from '../utils/architectureGenerator';
 import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
+import { architectureReasons } from '../data/architectureReasons';
 
 //mport { handleSlackIntegration } from '../utils/slackIntegration';
 // import { generateArchitecture } from '../utils/architectureGenerator';
@@ -352,6 +353,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
         <div className="result-bottom">
           <div className="architecture-section">
             <h3>{cbtiType.name}을 위한 추천 아키텍처</h3>
+            
             <ArchitectureDiagram 
               cbtiType={type || 'ASEV'} 
               recommendedServices={cbtiType.recommended_services || []}

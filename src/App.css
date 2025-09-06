@@ -596,6 +596,61 @@ body {
  align-items: start;
 }
 
+/* 아키텍처 추천 이유 스타일 */
+.architecture-reason {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: #f8f9ff;
+  border-radius: 15px;
+  border-left: 4px solid #667eea;
+}
+
+.architecture-reason h4 {
+  margin-bottom: 1.5rem;
+  color: #667eea;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.reason-content {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.reason-item {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.reason-item h5 {
+  margin-bottom: 0.8rem;
+  color: #4a5568;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reason-item p {
+  color: #2d3748;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reason-item ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.reason-item li {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
 
 .architecture-section h3 {
  margin-bottom: 1rem;
@@ -1013,6 +1068,31 @@ body {
   .architecture-description {
     padding: 1rem;
     margin: 1rem 0;
+  }
+  
+  /* 모바일 추천 이유 스타일 */
+  .architecture-reason {
+    margin-top: 1rem;
+    padding: 1rem;
+  }
+  
+  .reason-content {
+    gap: 1rem;
+  }
+  
+  .reason-item {
+    padding: 1rem;
+  }
+  
+  .reason-item h5 {
+    font-size: 0.95rem;
+  }
+  
+  .reason-item p,
+  .reason-item li {
+    word-break: keep-all;
+    line-height: 1.5;
+    font-size: 0.9rem;
   }
   
   .description-section p,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateArchitecture, ArchitectureConfig } from '../utils/architectureGenerator';
 import { architectureDescriptions } from '../data/architectureDescriptions';
+import { architectureReasons } from '../data/architectureReasons';
 
 interface ArchitectureDiagramProps {
   cbtiType: string;
@@ -56,6 +57,35 @@ const ArchitectureDiagram: React.FC<ArchitectureDiagramProps> = ({
             alt={`${cbtiType} 아키텍처`}
             className="architecture-diagram"
           />
+          
+          {/* 아키텍처 추천 이유 섹션 */}
+          {architectureReasons[cbtiType] && (
+            <div className="architecture-reason">
+              <h4>🎯 왜 이 아키텍처를 추천하나요?</h4>
+              <div className="reason-content">
+                <div className="reason-item">
+                  <h5>💡 성격 분석</h5>
+                  <p>{architectureReasons[cbtiType].personalityMatch}</p>
+                </div>
+                <div className="reason-item">
+                  <h5>🔧 기술적 적합성</h5>
+                  <p>{architectureReasons[cbtiType].technicalAlignment}</p>
+                </div>
+                <div className="reason-item">
+                  <h5>⭐ 업무 스타일</h5>
+                  <p>{architectureReasons[cbtiType].workStyle}</p>
+                </div>
+                <div className="reason-item">
+                  <h5>🚀 기대 효과</h5>
+                  <ul>
+                    {architectureReasons[cbtiType].benefits.map((benefit, index) => (
+                      <li key={index}>{benefit}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
           
           {archDescription && (
             <div className="architecture-description">
