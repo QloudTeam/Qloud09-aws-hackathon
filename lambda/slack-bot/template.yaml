@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CBTI 슬랙 봇 Lambda 함수 (독립 배포)'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: 배포 환경
+
+Resources:
+  # API Gateway
+  SlackBotApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'cbti-slack-events-${Environment}'
+      Description: 'CBTI 슬랙 이벤트 API'
+
+  # API Gateway 리소스 - 이벤트
+  SlackEventsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref SlackBotApi
+      ParentId: !GetAtt SlackBotApi.RootResourceId
+      PathPart: 'events'
+
+  # API Gateway 리소스 - 메시지
+  SlackMessageResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref SlackBotApi
+      ParentId: !GetAtt SlackBotApi.RootResourceId
+      PathPart: 'slack-message'
+
+  # API Gateway 메서드 - 이벤트
+  SlackEventsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref SlackBotApi
+      ResourceId: !Ref SlackEventsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SlackBotFunction.Arn}/invocations'
+
+  # API Gateway 메서드 - 메시지
+  SlackMessageMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref SlackBotApi
+      ResourceId: !Ref SlackMessageResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SlackBotFunction.Arn}/invocations'
+
+  # API Gateway 배포
+  SlackBotDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - SlackEventsMethod
+      - SlackMessageMethod
+    Properties:
+      RestApiId: !Ref SlackBotApi
+      StageName: !Ref Environment
+
+  # Lambda 권한 - 이벤트
+  SlackEventsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SlackBotFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SlackBotApi}/*/POST/events'
+
+  # Lambda 권한 - 메시지
+  SlackMessageLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SlackBotFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SlackBotApi}/*/POST/slack-message'
+
+  # Lambda 실행 역할
+  SlackBotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'cbti-slack-bot-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ParameterStoreAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/qloud/slack/bot-token'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource:
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/cbti-users'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/cbti-users/index/*'
+
+  # Lambda 함수
+  SlackBotFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'cbti-slack-bot-${Environment}'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt SlackBotRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ message: 'Placeholder function' })
+            };
+          };
+
+
+
+Outputs:
+  EventsUrl:
+    Description: 'Slack Events Subscription URL'
+    Value: !Sub 'https://${SlackBotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/events'
+    Export:
+      Name: !Sub '${AWS::StackName}-EventsUrl'
+
+  MessageUrl:
+    Description: 'Slack Message API URL'
+    Value: !Sub 'https://${SlackBotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/slack-message'
+    Export:
+      Name: !Sub '${AWS::StackName}-MessageUrl'
+
+  FunctionArn:
+    Description: 'Lambda Function ARN'
+    Value: !GetAtt SlackBotFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'

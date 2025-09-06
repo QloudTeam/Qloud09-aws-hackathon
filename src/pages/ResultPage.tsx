@@ -287,11 +287,42 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
     link.click();
   };
 
-  // 슬랙 커뮤니티 가입
-  const handleSlackCommunity = () => {
-    // 슬랙 워크스페이스 초대 링크로 리디렉션
-    const slackInviteUrl = 'https://join.slack.com/t/the-cbti/shared_invite/zt-3cspruxbq-RZK7pumghk6tiR8Cw~BwsA';
-    window.open(slackInviteUrl, '_blank');
+  // 슬랙 커뮤니티 가입 및 봇 메시지 전송
+  const handleSlackCommunity = async () => {
+    if (!userNickname || !type) {
+      const slackInviteUrl = 'https://join.slack.com/t/the-cbti/shared_invite/zt-3cspruxbq-RZK7pumghk6tiR8Cw~BwsA';
+      window.open(slackInviteUrl, '_blank');
+      return;
+    }
+
+    try {
+      // API Gateway + Lambda 호출
+      const response = await fetch('https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/production/slack-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nickname: userNickname,
+          cbtiType: type
+        })
+      });
+
+      if (response.status === 302) {
+        // 리디렉션 응답인 경우 슬랙으로 이동
+        const slackUrl = 'https://join.slack.com/t/the-cbti/shared_invite/zt-3cspruxbq-RZK7pumghk6tiR8Cw~BwsA';
+        window.location.href = slackUrl;
+      } else {
+        // 오류 시 기본 링크로 이동
+        const slackInviteUrl = 'https://join.slack.com/t/the-cbti/shared_invite/zt-3cspruxbq-RZK7pumghk6tiR8Cw~BwsA';
+        window.open(slackInviteUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('슬랙 연동 오류:', error);
+      // 오류 발생 시 기본 링크로 이동
+      const slackInviteUrl = 'https://join.slack.com/t/the-cbti/shared_invite/zt-3cspruxbq-RZK7pumghk6tiR8Cw~BwsA';
+      window.open(slackInviteUrl, '_blank');
+    }
   };
 
   const handleRestart = () => {
@@ -357,7 +388,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               </button>
             </div>
             <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '500px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
-              슬랙 커뮤니티 가입하기 🚀
+              슬랙으로 연결하기 🚀
             </button>
           </div>
           
@@ -373,7 +404,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               🏗️ 아키텍처 보기
             </button>
             <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '300px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
-              슬랙 커뮤니티 가입하기 🚀
+              슬랙으로 연결하기 🚀
             </button>
           </div>
         </div>
