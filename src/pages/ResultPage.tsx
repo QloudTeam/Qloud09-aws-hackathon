@@ -9,6 +9,7 @@ import { handleSlackIntegration } from '../utils/slackIntegration';
 import { generateArchitecture } from '../utils/architectureGenerator';
 import { generateCloudFormationTemplate } from '../utils/cloudFormationGenerator';
 import { architectureReasons } from '../data/architectureReasons';
+import { cbtiCompatibility } from '../data/cbtiCompatibility';
 
 //mport { handleSlackIntegration } from '../utils/slackIntegration';
 // import { generateArchitecture } from '../utils/architectureGenerator';
@@ -328,6 +329,14 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
                 코드 다운
               </button>
             </div>
+            <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
+              <button className="action-button" onClick={() => navigate(`/image-generator?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', flex: 1 }}>
+                🎨 이미지 생성
+              </button>
+              <button className="action-button" onClick={() => navigate(`/architecture?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', flex: 1 }}>
+                🏗️ 아키텍처 보기
+              </button>
+            </div>
             <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '500px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
               슬랙 커뮤니티 가입하기 🚀
             </button>
@@ -344,6 +353,12 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
             <button className="action-button" onClick={handleCodeDownload} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
               코드 다운
             </button>
+            <button className="action-button" onClick={() => navigate(`/image-generator?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              🎨 이미지 생성
+            </button>
+            <button className="action-button" onClick={() => navigate(`/architecture?cbti=${type}`)} style={{ backgroundColor: '#f0f8ff', color: '#323335ff', width: '100%', maxWidth: '300px' }}>
+              🏗️ 아키텍처 보기
+            </button>
             <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '300px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
               슬랙 커뮤니티 가입하기 🚀
             </button>
@@ -351,6 +366,45 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
         </div>
 
         <div className="result-bottom">
+          {/* 호환성 분석 섹션 */}
+          {type && cbtiCompatibility[type] && (
+            <div className="compatibility-section">
+              <h3>🤝 나와 잘 맞는 & 안 맞는 CBTI</h3>
+              
+              <div className="compatibility-content">
+                <div className="best-matches">
+                  <h4>🚀 나와 잘 맞는 CBTI</h4>
+                  <div className="match-cards">
+                    {cbtiCompatibility[type].bestMatches.map((match, index) => (
+                      <div key={index} className="match-card best-match">
+                        <div className="match-header">
+                          <span className="match-type">{match.type}</span>
+                          <span className="match-name">{match.name}</span>
+                        </div>
+                        <p className="match-reason">{match.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="worst-matches">
+                  <h4>⚠️ 나와 안 맞는 CBTI</h4>
+                  <div className="match-cards">
+                    {cbtiCompatibility[type].worstMatches.map((match, index) => (
+                      <div key={index} className="match-card worst-match">
+                        <div className="match-header">
+                          <span className="match-type">{match.type}</span>
+                          <span className="match-name">{match.name}</span>
+                        </div>
+                        <p className="match-reason">{match.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="architecture-section">
             <h3>{cbtiType.name}을 위한 추천 아키텍처</h3>
             

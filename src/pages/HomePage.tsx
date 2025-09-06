@@ -20,9 +20,21 @@ const HomePage: React.FC = () => {
        <div className="hero-section">
          <h1 className="main-title">CBTI</h1>
          <p className="subtitle">Cloud MBTI - 클라우드 성향 진단 ☁️</p>
-         <button className="start-button" onClick={handleStartTest}>
-           지금 시작하기
-         </button>
+         
+         <div className="action-buttons">
+           <button className="start-button primary" onClick={handleStartTest}>
+             🧪 CBTI 검사 시작하기
+           </button>
+           
+           <div className="secondary-buttons">
+             <button className="start-button secondary" onClick={() => navigate('/image-generator')}>
+               🎨 내 CBTI 이미지 생성
+             </button>
+             <button className="start-button secondary" onClick={() => navigate('/architecture')}>
+               🏗️ CBTI별 아키텍처 보기
+             </button>
+           </div>
+         </div>
        </div>
       
        <div className="info-sections">

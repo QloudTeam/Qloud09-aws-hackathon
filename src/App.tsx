@@ -4,6 +4,8 @@ import HomePage from './pages/HomePage';
 import TestPage from './pages/TestPage';
 import CharacterInfoPage from './pages/CharacterInfoPage';
 import ResultPage from './pages/ResultPage';
+import ImageGeneratorPage from './pages/ImageGeneratorPage';
+import ArchitecturePage from './pages/ArchitecturePage';
 import './App.css';
 
 /**
@@ -18,6 +20,8 @@ const App: React.FC = () => {
           <Route path="/test" element={<TestPage />} />
           <Route path="/character-info" element={<CharacterInfoPage />} />
           <Route path="/result" element={<ResultPage />} />
+          <Route path="/image-generator" element={<ImageGeneratorPage />} />
+          <Route path="/architecture" element={<ArchitecturePage />} />
         </Routes>
       </div>
     </Router>

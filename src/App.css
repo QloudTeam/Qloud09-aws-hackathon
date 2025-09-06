@@ -651,6 +651,107 @@ body {
   line-height: 1.5;
 }
 
+/* CBTI 호환성 분석 스타일 */
+.compatibility-section {
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.compatibility-section h3 {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #333;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.compatibility-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.best-matches h4 {
+  color: #10b981;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.worst-matches h4 {
+  color: #ef4444;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.match-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.match-card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.match-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.best-match {
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border-left: 4px solid #10b981;
+}
+
+.worst-match {
+  background: linear-gradient(135deg, #fef2f2 0%, #fef7f7 100%);
+  border-left: 4px solid #ef4444;
+}
+
+.match-header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.match-type {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.match-name {
+  color: #374151;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.match-reason {
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
 
 .architecture-section h3 {
  margin-bottom: 1rem;
@@ -1093,6 +1194,318 @@ body {
     word-break: keep-all;
     line-height: 1.5;
     font-size: 0.9rem;
+  }
+  
+  /* 모바일 호환성 분석 스타일 */
+  .compatibility-section {
+    margin-bottom: 2rem;
+    padding: 1rem;
+  }
+  
+  .compatibility-section h3 {
+    font-size: 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .compatibility-content {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .best-matches h4,
+  .worst-matches h4 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .match-card {
+    padding: 1rem;
+  }
+  
+  .match-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .match-type {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+  }
+  
+  .match-name {
+    font-size: 1rem;
+  }
+  
+  .match-reason {
+    word-break: keep-all;
+    line-height: 1.5;
+    font-size: 0.9rem;
+  }
+}
+
+/* HomePage 새로운 버튼 스타일 */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.start-button.primary {
+  font-size: 1.3rem;
+  padding: 1.2rem 2.5rem;
+}
+
+.secondary-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.start-button.secondary {
+  background: linear-gradient(135deg, #f8f9ff 0%, #e0e7ff 100%);
+  color: #667eea;
+  border: 2px solid #667eea;
+  font-size: 1rem;
+  padding: 0.8rem 1.5rem;
+}
+
+.start-button.secondary:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* ImageGeneratorPage 스타일 */
+.image-generator-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background: #f5f7fa;
+}
+
+.image-generator-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.back-button {
+  background: #f0f0f0;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 2rem;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background: #e0e0e0;
+}
+
+.generator-form {
+  background: white;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.cbti-select {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.generate-button {
+  width: 100%;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 15px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-top: 2rem;
+  transition: all 0.3s ease;
+}
+
+.generate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.image-result {
+  background: white;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.image-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.image-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.download-button, .regenerate-button {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.download-button {
+  background: #10b981;
+  color: white;
+}
+
+.regenerate-button {
+  background: #f59e0b;
+  color: white;
+}
+
+/* ArchitecturePage 스타일 */
+.architecture-page-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background: #f5f7fa;
+}
+
+.architecture-page-content {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.cbti-selector {
+  background: white;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.architecture-details {
+  background: white;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.cbti-info {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cbti-description {
+  font-size: 1.1rem;
+  color: #666;
+  margin: 1rem 0;
+  line-height: 1.6;
+}
+
+.cbti-tags {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tag {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 1rem;
+}
+
+.architecture-diagram-section {
+  margin-bottom: 3rem;
+}
+
+.diagram-container {
+  text-align: center;
+}
+
+.download-yaml-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.3s ease;
+}
+
+.download-yaml-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.description-content {
+  display: grid;
+  gap: 2rem;
+}
+
+.description-section h4 {
+  color: #667eea;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.description-section p {
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.description-section ul {
+  color: #4b5563;
+  padding-left: 1.5rem;
+}
+
+.description-section li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .secondary-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .start-button.secondary {
+    width: 100%;
+  }
+  
+  .image-actions {
+    flex-direction: column;
+  }
+  
+  .cbti-tags {
+    flex-direction: column;
+    align-items: center;
   }
   
   .description-section p,
