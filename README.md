@@ -124,7 +124,7 @@ Resources:
 - **ACEV (풀스택 개척자)**: EC2, S3, CloudFront
 - **ICRV (보안 수호자)**: S3, CloudFront, WAF
 
-### 4. 실시간 사용자 매칭 시스템
+### 4. 사용자 매칭 시스템
 ![사용자 매칭 화면](public/matching-screenshot.png)
 
 **DynamoDB 기반 실시간 매칭**:
