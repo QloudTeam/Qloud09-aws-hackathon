@@ -94,6 +94,10 @@ const generateImagePrompt = (userInfo, symbol, character) => {
 - Pixar/DreamWorks 스타일 3D 렌더링
 - 즉시 다운로드 가능
 
+**동영상 데모**
+![동영상 데모](public/1st.gif)
+
+
 ### 3. 맞춤형 AWS 아키텍처 추천
 ![아키텍처 다이어그램](public/ISEV-architecture.png)
 
