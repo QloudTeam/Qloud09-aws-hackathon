@@ -1,0 +1,210 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CBTI 웹 서비스 EC2 배포'
+
+Parameters:
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+    Default: cbti-key
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: CBTI-VPC
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: CBTI-IGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: CBTI-Public-Subnet
+
+  # Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: CBTI-Public-RT
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Group
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for CBTI web server
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: CBTI-WebServer-SG
+
+  # IAM Role for EC2
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2Role
+
+  # EC2 Instance
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2023
+      InstanceType: t3.micro
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref WebServerSecurityGroup
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          
+          # Node.js 20 설치
+          curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+          yum install -y nodejs git
+          
+          # PM2 설치
+          npm install -g pm2
+          
+          # 애플리케이션 디렉토리 생성
+          mkdir -p /opt/cbti-app
+          cd /opt/cbti-app
+          
+          # S3에서 애플리케이션 코드 다운로드 (추후 구현)
+          # aws s3 sync s3://your-code-bucket/ .
+          
+          # 임시 package.json 생성
+          cat > package.json << 'EOF'
+          {
+            "name": "cbti-web-service",
+            "version": "1.0.0",
+            "scripts": {
+              "start": "node server.js"
+            },
+            "dependencies": {
+              "express": "^4.21.2"
+            }
+          }
+          EOF
+          
+          # 임시 서버 파일 생성
+          cat > server.js << 'EOF'
+          const express = require('express');
+          const app = express();
+
+          
+          app.get('/', (req, res) => {
+            res.send('<h1>CBTI 웹 서비스</h1><p>배포 성공!</p>');
+          });
+          
+          app.listen(3000, () => {
+            console.log('Server running on port 3000');
+          });
+          EOF
+          
+          # 의존성 설치 및 서버 시작
+          npm install
+          pm2 start server.js --name "cbti-app"
+          pm2 startup
+          pm2 save
+          
+      Tags:
+        - Key: Name
+          Value: CBTI-WebServer
+
+Outputs:
+  WebsiteURL:
+    Description: CBTI 웹사이트 URL
+    Value: !Sub 'http://${WebServerInstance.PublicIp}:3000'
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'
+
+  InstanceId:
+    Description: EC2 인스턴스 ID
+    Value: !Ref WebServerInstance
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceId'
+
+  PublicIP:
+    Description: EC2 퍼블릭 IP
+    Value: !GetAtt WebServerInstance.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicIP'

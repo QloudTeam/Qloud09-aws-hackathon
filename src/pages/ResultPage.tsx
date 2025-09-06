@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CBTIType, UserInfo } from '../types';
-import cbtiData from '../data/cbti.json';
+import { loadCBTIData, getCloudFormationTemplateUrl } from '../utils/s3DataLoader';
 import html2canvas from 'html2canvas';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
 import LocalTestNotice from '../components/LocalTestNotice';
@@ -20,6 +20,7 @@ const ResultPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [cbtiType, setCbtiType] = useState<CBTIType | null>(null);
+  const [cbtiData, setCbtiData] = useState<any>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string>('');
   const [imageLoading, setImageLoading] = useState<boolean>(false);
@@ -27,13 +28,17 @@ const ResultPage: React.FC = () => {
   const type = searchParams.get('type');
 
   useEffect(() => {
-    if (!type || !cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES]) {
-      navigate('/');
-      return;
-    }
+    const loadData = async () => {
+      const data = await loadCBTIData();
+      setCbtiData(data);
+      
+      if (!type || !data.CBTI_TYPES[type as keyof typeof data.CBTI_TYPES]) {
+        navigate('/');
+        return;
+      }
 
-    // CBTI 유형 데이터 설정
-    setCbtiType(cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES]);
+      // CBTI 유형 데이터 설정
+      setCbtiType(data.CBTI_TYPES[type as keyof typeof data.CBTI_TYPES]);
 
     // 사용자 정보 가져오기
     const savedUserInfo = localStorage.getItem('userInfo');
@@ -41,15 +46,18 @@ const ResultPage: React.FC = () => {
       setUserInfo(JSON.parse(savedUserInfo));
     }
 
-    // Bedrock 이미지 생성 (비동기로 처리)
-    if (savedUserInfo) {
-      const parsedUserInfo = JSON.parse(savedUserInfo);
-      const cbtiTypeData = cbtiData.CBTI_TYPES[type as keyof typeof cbtiData.CBTI_TYPES];
-      
-      setTimeout(() => {
-        generateBedrockImageWithData(type, parsedUserInfo, cbtiTypeData);
-      }, 100);
-    }
+      // Bedrock 이미지 생성 (비동기로 처리)
+      if (savedUserInfo) {
+        const parsedUserInfo = JSON.parse(savedUserInfo);
+        const cbtiTypeData = data.CBTI_TYPES[type as keyof typeof data.CBTI_TYPES];
+        
+        setTimeout(() => {
+          generateBedrockImageWithData(type, parsedUserInfo, cbtiTypeData);
+        }, 100);
+      }
+    };
+    
+    loadData();
   }, [type, navigate]);
 
   const generateBedrockImageWithData = async (cbtiTypeKey: string, userInfo: UserInfo, cbtiTypeData: CBTIType) => {
@@ -252,9 +260,10 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
       'ICRV': 'ICRV-security-website.yaml'
     };
     
+    const templateUrl = getCloudFormationTemplateUrl(type);
     const yamlFileName = fileMapping[type] || `${type}-architecture.yaml`;
     const link = document.createElement('a');
-    link.href = `/cloudformation-templates/${yamlFileName}`;
+    link.href = templateUrl;
     link.download = yamlFileName;
     link.click();
   };
