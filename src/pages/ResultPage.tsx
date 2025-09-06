@@ -411,9 +411,13 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
                                 <div className="match-header">
                                   <span className="match-type">{cbtiType}</span>
                                   <span className="match-name">{matchInfo?.name || ''}</span>
-                                  <span className="user-nickname">👤 {users.map(u => u.nickname).join(' ')}</span>
                                 </div>
                                 <p className="match-reason">{matchInfo?.reason || ''}</p>
+                                <div className="user-nicknames">
+                                  {users.map((user, index) => (
+                                    <span key={index} className="user-nickname">👤 {user.nickname}</span>
+                                  ))}
+                                </div>
                               </div>
                             );
                           });
@@ -447,9 +451,13 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
                                 <div className="match-header">
                                   <span className="match-type">{cbtiType}</span>
                                   <span className="match-name">{matchInfo?.name || ''}</span>
-                                  <span className="user-nickname">👤 {users.map(u => u.nickname).join(' ')}</span>
                                 </div>
                                 <p className="match-reason">{matchInfo?.reason || ''}</p>
+                                <div className="user-nicknames">
+                                  {users.map((user, index) => (
+                                    <span key={index} className="user-nickname">👤 {user.nickname}</span>
+                                  ))}
+                                </div>
                               </div>
                             );
                           });

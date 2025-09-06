@@ -172,7 +172,7 @@ app.post('/api/cbti-matches', async (req, res) => {
         }
       }
       console.log('Best matches results:', results);
-      return results.slice(0, 5); // 최대 5명
+      return results; // 제한 없음
     };
 
     const getWorstMatches = async () => {
@@ -203,7 +203,7 @@ app.post('/api/cbti-matches', async (req, res) => {
         }
       }
       console.log('Worst matches results:', results);
-      return results.slice(0, 5); // 최늄 5명
+      return results; // 제한 없음
     };
 
     const [bestMatches, worstMatches] = await Promise.all([
