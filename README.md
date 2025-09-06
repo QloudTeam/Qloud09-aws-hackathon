@@ -69,7 +69,7 @@ const dimensions = [
 
 ### 2. AI 기반 개인화 캐릭터 이미지 생성
 ![캐릭터 생성 화면](public/character-screenshot.png)
-
+![캐릭터 생성 완료 화면](public/result.png)
 **Amazon Bedrock Nova Canvas**를 활용한 맞춤형 캐릭터 생성:
 
 **개인화 요소**:

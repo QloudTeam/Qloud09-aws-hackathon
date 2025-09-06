@@ -143,7 +143,7 @@ app.post('/api/cbti-matches', async (req, res) => {
       credentials: { accessKeyId, secretAccessKey }
     });
 
-    // 최근 사용자들만 조회 (최대 5명씩)
+    // 모든 사용자 조회
     const getBestMatches = async () => {
       const results = [];
       for (const cbtiType of bestMatchTypes) {
@@ -155,8 +155,7 @@ app.post('/api/cbti-matches', async (req, res) => {
             ExpressionAttributeValues: marshall({
               ':cbtiType': cbtiType
             }),
-            ScanIndexForward: false, // 최신순
-            Limit: 3
+            ScanIndexForward: false // 최신순
           });
           
           const response = await dynamoClient.send(command);
@@ -186,8 +185,7 @@ app.post('/api/cbti-matches', async (req, res) => {
             ExpressionAttributeValues: marshall({
               ':cbtiType': cbtiType
             }),
-            ScanIndexForward: false, // 최신순
-            Limit: 3
+            ScanIndexForward: false // 최신순
           });
           
           const response = await dynamoClient.send(command);

@@ -378,7 +378,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
          <div className="desktop-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
               <button className="action-button" onClick={handleRestart} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
-                다시하기
+                처음으로
               </button>
               <button className="action-button" onClick={handlePageSave} style={{ backgroundColor: '#eaeeffff', color: '#323335ff', flex: 1 }}>
                 페이지 저장
@@ -388,7 +388,7 @@ Framing: Square 1:1 ratio, medium close-up shot, centered composition with the c
               </button>
             </div>
             <button className="action-button slack-button" onClick={handleSlackCommunity} style={{ width: '100%', maxWidth: '500px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
-              슬랙으로 연결하기 🚀
+              CBTI 커뮤니티 입장하기 🚀
             </button>
           </div>
           
