@@ -1,4 +1,4 @@
-# Qloud : CBTI(Cloud-MBTI) 
+# Qloud : CBTI(Cloud-MBTI) - 최영훈, 김서희, 김민지
 
 
 ## 어플리케이션 개요
